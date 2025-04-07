@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Calculator, Box } from "lucide-react";
+import { Calculator, Box, FileText, Printer } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import ResultCard from "./ResultCard";
 import TimeInput from "./TimeInput";
@@ -21,6 +21,9 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Tabs as DialogTabs, TabsContent as DialogTabsContent, TabsList as DialogTabsList, TabsTrigger as DialogTabsTrigger } from "@/components/ui/tabs";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 // Material density in g/cm³
 const materialDensities: { [key: string]: number } = {
@@ -46,6 +49,18 @@ const materialCosts: { [key: string]: number } = {
   "plastic-pom": 6.0,
   "plastic-abs": 5.0,
   "plastic-nylon": 7.0
+};
+
+// Surface finishing options and costs in USD
+const finishingOptions: { [key: string]: number } = {
+  "none": 0,
+  "deburring": 15, 
+  "brushing": 20,
+  "polishing": 45,
+  "anodizing": 50,
+  "nickel-plating": 65,
+  "powder-coating": 40,
+  "chromate": 30
 };
 
 const MachiningCalculator = () => {
@@ -87,6 +102,39 @@ const MachiningCalculator = () => {
   const [costPerPiece, setCostPerPiece] = useState<string>("0");
   const [totalLotCost, setTotalLotCost] = useState<string>("0");
   const [materialCost, setMaterialCost] = useState<string>("0");
+
+  // New features
+  const [setupCount, setSetupCount] = useState<string>("1");
+  const [selectedFinishing, setSelectedFinishing] = useState<string>("none");
+  const [batchSizes, setBatchSizes] = useState<string[]>([]);
+  const [toolCost, setToolCost] = useState<string>("0");
+  const [materialComparison, setMaterialComparison] = useState<boolean>(false);
+  const [addMarkup, setAddMarkup] = useState<boolean>(false);
+  const [markupPercentage, setMarkupPercentage] = useState<string>("20");
+  const [includeProgramming, setIncludeProgramming] = useState<boolean>(true);
+  
+  // Calculated batch sizes
+  const calculateOptimalBatchSizes = () => {
+    const qtyNum = parseInt(quantity);
+    const setupsNum = parseInt(setupCount) || 1;
+    const sizes: string[] = [];
+    
+    if (qtyNum <= setupsNum) {
+      sizes.push(`${qtyNum} pieces in 1 batch`);
+    } else {
+      // Simple batch distribution
+      const batchSize = Math.floor(qtyNum / setupsNum);
+      const remainder = qtyNum % setupsNum;
+      
+      for (let i = 0; i < setupsNum; i++) {
+        const currentBatchSize = i < remainder ? batchSize + 1 : batchSize;
+        sizes.push(`${currentBatchSize} pieces in batch ${i + 1}`);
+      }
+    }
+    
+    setBatchSizes(sizes);
+    return sizes;
+  };
 
   const calculateTotalTime = (hours: string, minutes: string): number => {
     const hoursNum = parseFloat(hours) || 0;
@@ -145,8 +193,8 @@ const MachiningCalculator = () => {
 
     // Calculate costs
     const machineCost = totalMachineTimeValue * parseFloat(machineHourlyCost);
-    const setupCost = totalSetupTimeValue * parseFloat(setupHourlyCost);
-    const programmingCost = totalProgrammingTimeValue * parseFloat(programmingHourlyCost);
+    const setupCostValue = totalSetupTimeValue * parseFloat(setupHourlyCost) * parseInt(setupCount || "1");
+    const programmingCostValue = includeProgramming ? totalProgrammingTimeValue * parseFloat(programmingHourlyCost) : 0;
     
     const quantityNum = parseInt(quantity);
     
@@ -164,14 +212,32 @@ const MachiningCalculator = () => {
       setMaterialCost(materialCostValue.toFixed(2));
     }
 
+    // Get finishing cost
+    const finishingCostPerPiece = finishingOptions[selectedFinishing] || 0;
+    const totalFinishingCost = finishingCostPerPiece * quantityNum;
+    
+    // Tool cost per piece
+    const toolCostValue = parseFloat(toolCost) || 0;
+    const toolCostPerPiece = toolCostValue / quantityNum;
+
     // Fixed costs (setup and programming) are divided by quantity
     // Variable costs (machine time) are per piece
-    const fixedCostsPerPiece = (setupCost + programmingCost) / quantityNum;
-    const variableCostsPerPiece = machineCost;
+    const fixedCostsPerPiece = (setupCostValue + programmingCostValue) / quantityNum;
+    const variableCostsPerPiece = machineCost + finishingCostPerPiece + toolCostPerPiece;
     const materialCostPerPiece = materialCostValue / quantityNum;
     
-    const totalCostPerPiece = fixedCostsPerPiece + variableCostsPerPiece + materialCostPerPiece;
+    let totalCostPerPiece = fixedCostsPerPiece + variableCostsPerPiece + materialCostPerPiece;
+    
+    // Apply markup if needed
+    if (addMarkup) {
+      const markup = parseFloat(markupPercentage) / 100;
+      totalCostPerPiece = totalCostPerPiece * (1 + markup);
+    }
+    
     const totalBatchCost = totalCostPerPiece * quantityNum;
+
+    // Calculate optimal batch sizes
+    calculateOptimalBatchSizes();
 
     // Format and set result values
     setTotalMachineTime(totalMachineTimeValue.toFixed(2));
@@ -218,6 +284,16 @@ const MachiningCalculator = () => {
     setWidth("");
     setThickness("");
     setDiameter("");
+    
+    // Reset new features
+    setSetupCount("1");
+    setSelectedFinishing("none");
+    setBatchSizes([]);
+    setToolCost("0");
+    setMaterialComparison(false);
+    setAddMarkup(false);
+    setMarkupPercentage("20");
+    setIncludeProgramming(true);
 
     // Reset results
     setTotalMachineTime("0");
@@ -230,13 +306,146 @@ const MachiningCalculator = () => {
       description: "All inputs have been cleared.",
     });
   };
+  
+  const printQuote = () => {
+    const printWindow = window.open('', '_blank');
+    
+    if (!printWindow) {
+      toast({
+        title: "Print Error",
+        description: "Unable to open print window. Please allow popups for this site.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    printWindow.document.write(`
+      <html>
+        <head>
+          <title>CNC Machining Quote</title>
+          <style>
+            body { font-family: Arial, sans-serif; margin: 40px; }
+            h1, h2 { color: #333; }
+            .quote-header { margin-bottom: 30px; }
+            .quote-section { margin-bottom: 20px; }
+            table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+            th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+            th { background-color: #f2f2f2; }
+            .total { font-weight: bold; }
+            .footer { margin-top: 50px; font-size: 0.8em; color: #666; }
+            @media print {
+              body { margin: 0.5cm; }
+              button { display: none; }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="quote-header">
+            <h1>CNC Machining Quote</h1>
+            <p>Date: ${new Date().toLocaleDateString()}</p>
+            <p>Quote Reference: QT-${Date.now().toString().substring(6)}</p>
+          </div>
+          
+          <div class="quote-section">
+            <h2>Job Details</h2>
+            <table>
+              <tr><th>Quantity:</th><td>${quantity} pieces</td></tr>
+              <tr><th>Material:</th><td>${selectedMaterial}</td></tr>
+              <tr><th>Finishing:</th><td>${selectedFinishing}</td></tr>
+              <tr><th>Setup Count:</th><td>${setupCount}</td></tr>
+            </table>
+          </div>
+          
+          <div class="quote-section">
+            <h2>Cost Breakdown</h2>
+            <table>
+              <tr><th>Machine Time:</th><td>${totalMachineTime} hours</td></tr>
+              <tr><th>Material Cost:</th><td>$${materialCost}</td></tr>
+              <tr><th>Cost Per Piece:</th><td>$${costPerPiece}</td></tr>
+              <tr><th class="total">Total Lot Cost:</th><td class="total">$${totalLotCost}</td></tr>
+            </table>
+          </div>
+          
+          <div class="quote-section">
+            <h2>Batch Information</h2>
+            <table>
+              <tr><th>Batch Distribution:</th></tr>
+              ${batchSizes.map(batch => `<tr><td>${batch}</td></tr>`).join('')}
+            </table>
+          </div>
+          
+          <div class="footer">
+            <p>This quote is valid for 30 days from the date issued.</p>
+            <p>Terms and conditions apply.</p>
+          </div>
+          
+          <button onclick="window.print();setTimeout(window.close, 500)">Print Quote</button>
+        </body>
+      </html>
+    `);
+    
+    printWindow.document.close();
+    setTimeout(() => {
+      printWindow.focus();
+      printWindow.print();
+    }, 1000);
+    
+    toast({
+      title: "Print Ready",
+      description: "Quote has been prepared for printing.",
+    });
+  };
+  
+  const renderMaterialComparison = () => {
+    if (!materialComparison) return null;
+    
+    // Get volume and calculate weight for each material
+    const volumeCm3 = parseFloat(materialVolume) || 0;
+    if (volumeCm3 <= 0) return null;
+    
+    return (
+      <Card className="mt-4">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-lg">Material Comparison</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Material</TableHead>
+                <TableHead>Weight (kg)</TableHead>
+                <TableHead>Cost</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {Object.entries(materialDensities).map(([material, density]) => {
+                // Calculate weight: volume (cm³) * density (g/cm³) / 1000 = weight in kg
+                const weightKg = volumeCm3 * density / 1000;
+                // Calculate cost: weight (kg) * cost per kg * quantity
+                const cost = weightKg * materialCosts[material] * parseInt(quantity || "1");
+                
+                return (
+                  <TableRow key={material} className={material === selectedMaterial ? "bg-muted/50" : ""}>
+                    <TableCell className="font-medium">{material.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}</TableCell>
+                    <TableCell>{weightKg.toFixed(3)}</TableCell>
+                    <TableCell>${cost.toFixed(2)}</TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+    );
+  };
 
   return (
     <div className="max-w-4xl mx-auto">
       <Tabs defaultValue="machining" className="w-full">
-        <TabsList className="grid grid-cols-2">
+        <TabsList className="grid grid-cols-3">
           <TabsTrigger value="machining">Machining Calculator</TabsTrigger>
           <TabsTrigger value="material">Material Calculator</TabsTrigger>
+          <TabsTrigger value="advanced">Advanced Options</TabsTrigger>
         </TabsList>
         
         <Card className="mt-6">
@@ -273,11 +482,20 @@ const MachiningCalculator = () => {
                   
                   <div>
                     <Label htmlFor="programming-time">Programming Time:</Label>
+                    <div className="flex items-center gap-2 mb-2">
+                      <Checkbox 
+                        id="include-programming"
+                        checked={includeProgramming}
+                        onCheckedChange={(checked) => setIncludeProgramming(checked as boolean)}
+                      />
+                      <Label htmlFor="include-programming" className="text-sm">Include programming cost</Label>
+                    </div>
                     <TimeInput
                       hoursValue={programmingTimeHours}
                       minutesValue={programmingTimeMinutes}
                       onHoursChange={(e) => setProgrammingTimeHours(e.target.value)}
                       onMinutesChange={(e) => setProgrammingTimeMinutes(e.target.value)}
+                      disabled={!includeProgramming}
                     />
                   </div>
                 </div>
@@ -319,19 +537,33 @@ const MachiningCalculator = () => {
                       placeholder="0.00"
                       value={programmingHourlyCost}
                       onChange={(e) => setProgrammingHourlyCost(e.target.value)}
+                      disabled={!includeProgramming}
                     />
                   </div>
                   
-                  <div>
-                    <Label htmlFor="quantity">Quantity:</Label>
-                    <Input
-                      id="quantity"
-                      type="number"
-                      min="1"
-                      placeholder="1"
-                      value={quantity}
-                      onChange={(e) => setQuantity(e.target.value)}
-                    />
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <Label htmlFor="quantity">Quantity:</Label>
+                      <Input
+                        id="quantity"
+                        type="number"
+                        min="1"
+                        placeholder="1"
+                        value={quantity}
+                        onChange={(e) => setQuantity(e.target.value)}
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="setup-count">Setup Count:</Label>
+                      <Input
+                        id="setup-count"
+                        type="number"
+                        min="1"
+                        placeholder="1"
+                        value={setupCount}
+                        onChange={(e) => setSetupCount(e.target.value)}
+                      />
+                    </div>
                   </div>
                 </div>
               </div>
@@ -486,6 +718,17 @@ const MachiningCalculator = () => {
                       onChange={(e) => setMaterialVolume(e.target.value)}
                     />
                   </div>
+                  
+                  <div>
+                    <div className="flex items-center gap-2 mb-2">
+                      <Checkbox 
+                        id="compare-materials"
+                        checked={materialComparison}
+                        onCheckedChange={(checked) => setMaterialComparison(checked as boolean)}
+                      />
+                      <Label htmlFor="compare-materials" className="text-sm">Show material cost comparison</Label>
+                    </div>
+                  </div>
                 </div>
                 
                 <div className="space-y-4">
@@ -514,6 +757,100 @@ const MachiningCalculator = () => {
                       onChange={(e) => setCustomDensity(e.target.value)}
                     />
                   </div>
+                  
+                  <div>
+                    <Label htmlFor="finishing">Surface Finishing:</Label>
+                    <Select value={selectedFinishing} onValueChange={setSelectedFinishing}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select finishing" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">None</SelectItem>
+                        <SelectItem value="deburring">Deburring (+$15)</SelectItem>
+                        <SelectItem value="brushing">Brushing (+$20)</SelectItem>
+                        <SelectItem value="polishing">Polishing (+$45)</SelectItem>
+                        <SelectItem value="anodizing">Anodizing (+$50)</SelectItem>
+                        <SelectItem value="nickel-plating">Nickel Plating (+$65)</SelectItem>
+                        <SelectItem value="powder-coating">Powder Coating (+$40)</SelectItem>
+                        <SelectItem value="chromate">Chromate (+$30)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              </div>
+              
+              {renderMaterialComparison()}
+            </TabsContent>
+            
+            <TabsContent value="advanced" className="mt-0">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-4">
+                  <div>
+                    <Label htmlFor="tool-cost">Tool Cost ($):</Label>
+                    <Input
+                      id="tool-cost"
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      placeholder="0.00"
+                      value={toolCost}
+                      onChange={(e) => setToolCost(e.target.value)}
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Total cost of the tools needed for this job
+                    </p>
+                  </div>
+                  
+                  <div>
+                    <div className="flex items-center gap-2 mb-2">
+                      <Checkbox 
+                        id="add-markup"
+                        checked={addMarkup}
+                        onCheckedChange={(checked) => setAddMarkup(checked as boolean)}
+                      />
+                      <Label htmlFor="add-markup" className="text-sm">Add profit markup</Label>
+                    </div>
+                    
+                    {addMarkup && (
+                      <div className="mt-2">
+                        <Label htmlFor="markup-percentage">Markup Percentage (%):</Label>
+                        <Input
+                          id="markup-percentage"
+                          type="number"
+                          min="0"
+                          max="500"
+                          step="1"
+                          value={markupPercentage}
+                          onChange={(e) => setMarkupPercentage(e.target.value)}
+                        />
+                      </div>
+                    )}
+                  </div>
+                </div>
+                
+                <div className="space-y-4">
+                  <div>
+                    <Label>Batch Optimization:</Label>
+                    <div className="border rounded-md p-3 mt-1 bg-muted/20">
+                      <p className="text-sm mb-2">Split production into multiple batches to optimize machine utilization.</p>
+                      <div className="flex gap-2 items-center mb-2">
+                        <span className="text-sm font-medium">Quantity: {quantity}</span>
+                        <span className="text-sm font-medium mx-2">|</span>
+                        <span className="text-sm font-medium">Setups: {setupCount}</span>
+                      </div>
+                      
+                      {batchSizes.length > 0 && (
+                        <div className="mt-2">
+                          <p className="text-sm font-medium">Optimal Batch Distribution:</p>
+                          <ul className="text-sm mt-1">
+                            {batchSizes.map((size, index) => (
+                              <li key={index} className="text-muted-foreground">{size}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 </div>
               </div>
             </TabsContent>
@@ -538,6 +875,25 @@ const MachiningCalculator = () => {
                   <ResultCard label="Material Cost" value={`$${materialCost}`} />
                 )}
               </div>
+              
+              <div className="mt-6 flex justify-center">
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" className="mr-2">
+                      <FileText className="mr-2 h-4 w-4" />
+                      Export Options
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-56">
+                    <div className="grid gap-2">
+                      <Button variant="outline" className="justify-start" onClick={printQuote}>
+                        <Printer className="mr-2 h-4 w-4" />
+                        Print Quote
+                      </Button>
+                    </div>
+                  </PopoverContent>
+                </Popover>
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -547,3 +903,4 @@ const MachiningCalculator = () => {
 };
 
 export default MachiningCalculator;
+
