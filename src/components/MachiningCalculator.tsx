@@ -6,10 +6,21 @@ import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Calculator } from "lucide-react";
+import { Calculator, Box } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import ResultCard from "./ResultCard";
 import TimeInput from "./TimeInput";
+import { Switch } from "@/components/ui/switch";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Tabs as DialogTabs, TabsContent as DialogTabsContent, TabsList as DialogTabsList, TabsTrigger as DialogTabsTrigger } from "@/components/ui/tabs";
 
 // Material density in g/cm³
 const materialDensities: { [key: string]: number } = {
@@ -62,6 +73,15 @@ const MachiningCalculator = () => {
   );
   const [customDensity, setCustomDensity] = useState<string>("2.7");
 
+  // Dimension inputs
+  const [length, setLength] = useState<string>("");
+  const [width, setWidth] = useState<string>("");
+  const [thickness, setThickness] = useState<string>("");
+  const [diameter, setDiameter] = useState<string>("");
+
+  // Unit system toggle (Metric / SAE)
+  const [isMetric, setIsMetric] = useState<boolean>(true);
+
   // Results
   const [totalMachineTime, setTotalMachineTime] = useState<string>("0");
   const [costPerPiece, setCostPerPiece] = useState<string>("0");
@@ -72,6 +92,33 @@ const MachiningCalculator = () => {
     const hoursNum = parseFloat(hours) || 0;
     const minutesNum = parseFloat(minutes) || 0;
     return hoursNum + minutesNum / 60;
+  };
+
+  const calculateVolume = () => {
+    let volume = 0;
+    
+    // Convert input strings to numbers, defaulting to 0 if empty
+    const lengthVal = parseFloat(length) || 0;
+    const widthVal = parseFloat(width) || 0;
+    const thicknessVal = parseFloat(thickness) || 0;
+    const diameterVal = parseFloat(diameter) || 0;
+    
+    if (diameterVal > 0 && lengthVal > 0) {
+      // Cylindrical part: π × r² × length
+      volume = Math.PI * Math.pow(diameterVal / 2, 2) * lengthVal;
+    } else if (lengthVal > 0 && widthVal > 0 && thicknessVal > 0) {
+      // Rectangular part: length × width × thickness
+      volume = lengthVal * widthVal * thicknessVal;
+    }
+    
+    // Convert from cubic inches to cubic cm if SAE units
+    if (!isMetric && volume > 0) {
+      volume *= 16.387064; // 1 in³ = 16.387064 cm³
+    }
+    
+    if (volume > 0) {
+      setMaterialVolume(volume.toFixed(2));
+    }
   };
 
   const calculateCosts = () => {
@@ -165,6 +212,12 @@ const MachiningCalculator = () => {
     setMaterialVolume("");
     setMaterialCostPerKg(materialCosts["aluminum"].toString());
     setCustomDensity(materialDensities["aluminum"].toString());
+
+    // Reset dimension inputs
+    setLength("");
+    setWidth("");
+    setThickness("");
+    setDiameter("");
 
     // Reset results
     setTotalMachineTime("0");
@@ -285,6 +338,18 @@ const MachiningCalculator = () => {
             </TabsContent>
             
             <TabsContent value="material" className="space-y-6 mt-0">
+              <div className="flex items-center justify-end mb-4">
+                <div className="flex items-center space-x-2">
+                  <Label htmlFor="unit-system" className="text-sm font-medium">SAE</Label>
+                  <Switch 
+                    id="unit-system" 
+                    checked={isMetric}
+                    onCheckedChange={setIsMetric}
+                  />
+                  <Label htmlFor="unit-system" className="text-sm font-medium">Metric</Label>
+                </div>
+              </div>
+              
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-4">
                   <div>
@@ -308,8 +373,109 @@ const MachiningCalculator = () => {
                     </Select>
                   </div>
                   
+                  <Dialog>
+                    <DialogTrigger asChild>
+                      <Button variant="outline" className="w-full" type="button">
+                        <Box className="mr-2 h-4 w-4" />
+                        Enter Part Dimensions
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="sm:max-w-md">
+                      <DialogHeader>
+                        <DialogTitle>Enter Part Dimensions</DialogTitle>
+                        <DialogDescription>
+                          Enter the dimensions of your part to calculate the volume.
+                        </DialogDescription>
+                      </DialogHeader>
+                      
+                      <div className="py-4">
+                        <DialogTabs defaultValue="rectangular">
+                          <DialogTabsList className="grid w-full grid-cols-2">
+                            <DialogTabsTrigger value="rectangular">Rectangular</DialogTabsTrigger>
+                            <DialogTabsTrigger value="cylindrical">Cylindrical</DialogTabsTrigger>
+                          </DialogTabsList>
+                          
+                          <DialogTabsContent value="rectangular" className="space-y-4 mt-4">
+                            <div>
+                              <Label htmlFor="length">Length ({isMetric ? "mm" : "in"}):</Label>
+                              <Input
+                                id="length"
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                placeholder="0.00"
+                                value={length}
+                                onChange={(e) => setLength(e.target.value)}
+                              />
+                            </div>
+                            
+                            <div>
+                              <Label htmlFor="width">Width ({isMetric ? "mm" : "in"}):</Label>
+                              <Input
+                                id="width"
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                placeholder="0.00"
+                                value={width}
+                                onChange={(e) => setWidth(e.target.value)}
+                              />
+                            </div>
+                            
+                            <div>
+                              <Label htmlFor="thickness">Thickness ({isMetric ? "mm" : "in"}):</Label>
+                              <Input
+                                id="thickness"
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                placeholder="0.00"
+                                value={thickness}
+                                onChange={(e) => setThickness(e.target.value)}
+                              />
+                            </div>
+                          </DialogTabsContent>
+                          
+                          <DialogTabsContent value="cylindrical" className="space-y-4 mt-4">
+                            <div>
+                              <Label htmlFor="diameter">Diameter ({isMetric ? "mm" : "in"}):</Label>
+                              <Input
+                                id="diameter"
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                placeholder="0.00"
+                                value={diameter}
+                                onChange={(e) => setDiameter(e.target.value)}
+                              />
+                            </div>
+                            
+                            <div>
+                              <Label htmlFor="cyl-length">Length ({isMetric ? "mm" : "in"}):</Label>
+                              <Input
+                                id="cyl-length"
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                placeholder="0.00"
+                                value={length}
+                                onChange={(e) => setLength(e.target.value)}
+                              />
+                            </div>
+                          </DialogTabsContent>
+                        </DialogTabs>
+                      </div>
+                      
+                      <DialogFooter>
+                        <Button type="button" onClick={() => calculateVolume()}>
+                          Calculate Volume
+                        </Button>
+                      </DialogFooter>
+                    </DialogContent>
+                  </Dialog>
+                  
                   <div>
-                    <Label htmlFor="material-volume">Material Volume (cm³):</Label>
+                    <Label htmlFor="material-volume">Material Volume ({isMetric ? "cm³" : "in³ → cm³"}):</Label>
                     <Input
                       id="material-volume"
                       type="number"
