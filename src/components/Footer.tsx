@@ -1,5 +1,6 @@
 
 import { Button } from "@/components/ui/button";
+import GDPRModal from "./GDPRModal";
 
 const Footer = () => {
   return (
@@ -9,7 +10,7 @@ const Footer = () => {
       </p>
       <div className="flex justify-center gap-4 mt-2">
         <Button variant="ghost" size="sm" className="text-gray-300 hover:text-white">Feedback</Button>
-        <Button variant="ghost" size="sm" className="text-gray-300 hover:text-white">Help</Button>
+        <GDPRModal />
       </div>
       <p className="text-xs mt-2">© {new Date().getFullYear()} CNC Machining Cost Calculator Pro</p>
     </footer>

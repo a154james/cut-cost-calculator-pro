@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -27,7 +26,6 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
-// Material density in g/cm³
 const materialDensities: { [key: string]: number } = {
   "aluminum": 2.7,
   "steel": 7.85,
@@ -40,7 +38,6 @@ const materialDensities: { [key: string]: number } = {
   "plastic-nylon": 1.15
 };
 
-// Material cost per kg in USD
 const materialCosts: { [key: string]: number } = {
   "aluminum": 4.5,
   "steel": 2.5,
@@ -53,7 +50,6 @@ const materialCosts: { [key: string]: number } = {
   "plastic-nylon": 7.0
 };
 
-// Initialize finishing processes
 const initialFinishingProcesses: ProcessOption[] = [
   { id: "none", name: "None", cost: 0, selected: true },
   { id: "deburring", name: "Deburring", cost: 15, selected: false },
@@ -68,7 +64,6 @@ const initialFinishingProcesses: ProcessOption[] = [
 const MachiningCalculator = () => {
   const { toast } = useToast();
 
-  // Time inputs
   const [machineTimeHours, setMachineTimeHours] = useState<string>("");
   const [machineTimeMinutes, setMachineTimeMinutes] = useState<string>("");
   const [setupTimeHours, setSetupTimeHours] = useState<string>("");
@@ -76,13 +71,11 @@ const MachiningCalculator = () => {
   const [programmingTimeHours, setProgrammingTimeHours] = useState<string>("");
   const [programmingTimeMinutes, setProgrammingTimeMinutes] = useState<string>("");
 
-  // Cost inputs
   const [machineHourlyCost, setMachineHourlyCost] = useState<string>("");
   const [setupHourlyCost, setSetupHourlyCost] = useState<string>("");
   const [programmingHourlyCost, setProgrammingHourlyCost] = useState<string>("");
   const [quantity, setQuantity] = useState<string>("1");
 
-  // Material inputs
   const [selectedMaterial, setSelectedMaterial] = useState<string>("aluminum");
   const [materialVolume, setMaterialVolume] = useState<string>("");
   const [materialCostPerKg, setMaterialCostPerKg] = useState<string>(
@@ -90,22 +83,18 @@ const MachiningCalculator = () => {
   );
   const [customDensity, setCustomDensity] = useState<string>("2.7");
 
-  // Dimension inputs
   const [length, setLength] = useState<string>("");
   const [width, setWidth] = useState<string>("");
   const [thickness, setThickness] = useState<string>("");
   const [diameter, setDiameter] = useState<string>("");
 
-  // Unit system toggle (Metric / SAE)
-  const [isMetric, setIsMetric] = useState<boolean>(false); // Changed default to SAE/Imperial
+  const [isMetric, setIsMetric] = useState<boolean>(false);
 
-  // Results
   const [totalMachineTime, setTotalMachineTime] = useState<string>("0");
   const [costPerPiece, setCostPerPiece] = useState<string>("0");
   const [totalLotCost, setTotalLotCost] = useState<string>("0");
   const [materialCost, setMaterialCost] = useState<string>("0");
 
-  // New features
   const [setupCount, setSetupCount] = useState<string>("1");
   const [finishingProcesses, setFinishingProcesses] = useState<ProcessOption[]>(initialFinishingProcesses);
   const [batchSizes, setBatchSizes] = useState<string[]>([]);
@@ -114,8 +103,7 @@ const MachiningCalculator = () => {
   const [addMarkup, setAddMarkup] = useState<boolean>(false);
   const [markupPercentage, setMarkupPercentage] = useState<string>("20");
   const [includeProgramming, setIncludeProgramming] = useState<boolean>(true);
-  
-  // Calculated batch sizes
+
   const calculateOptimalBatchSizes = () => {
     const qtyNum = parseInt(quantity);
     const setupsNum = parseInt(setupCount) || 1;
@@ -124,7 +112,6 @@ const MachiningCalculator = () => {
     if (qtyNum <= setupsNum) {
       sizes.push(`${qtyNum} pieces in 1 batch`);
     } else {
-      // Simple batch distribution
       const batchSize = Math.floor(qtyNum / setupsNum);
       const remainder = qtyNum % setupsNum;
       
@@ -147,23 +134,19 @@ const MachiningCalculator = () => {
   const calculateVolume = () => {
     let volume = 0;
     
-    // Convert input strings to numbers, defaulting to 0 if empty
     const lengthVal = parseFloat(length) || 0;
     const widthVal = parseFloat(width) || 0;
     const thicknessVal = parseFloat(thickness) || 0;
     const diameterVal = parseFloat(diameter) || 0;
     
     if (diameterVal > 0 && lengthVal > 0) {
-      // Cylindrical part: π × r² × length
       volume = Math.PI * Math.pow(diameterVal / 2, 2) * lengthVal;
     } else if (lengthVal > 0 && widthVal > 0 && thicknessVal > 0) {
-      // Rectangular part: length × width × thickness
       volume = lengthVal * widthVal * thicknessVal;
     }
     
-    // Convert from cubic inches to cubic cm if SAE units
     if (!isMetric && volume > 0) {
-      volume *= 16.387064; // 1 in³ = 16.387064 cm³
+      volume *= 16.387064;
     }
     
     if (volume > 0) {
@@ -172,7 +155,6 @@ const MachiningCalculator = () => {
   };
 
   const calculateCosts = () => {
-    // Validate inputs
     if (
       !machineHourlyCost || 
       !setupHourlyCost || 
@@ -188,50 +170,40 @@ const MachiningCalculator = () => {
       return;
     }
 
-    // Calculate total times
     const totalMachineTimeValue = calculateTotalTime(machineTimeHours, machineTimeMinutes);
     const totalSetupTimeValue = calculateTotalTime(setupTimeHours, setupTimeMinutes);
     const totalProgrammingTimeValue = calculateTotalTime(programmingTimeHours, programmingTimeMinutes);
 
-    // Calculate costs
     const machineCost = totalMachineTimeValue * parseFloat(machineHourlyCost);
     const setupCostValue = totalSetupTimeValue * parseFloat(setupHourlyCost) * parseInt(setupCount || "1");
     const programmingCostValue = includeProgramming ? totalProgrammingTimeValue * parseFloat(programmingHourlyCost) : 0;
     
     const quantityNum = parseInt(quantity);
     
-    // Calculate material cost if material info is provided
     let materialCostValue = 0;
     if (materialVolume && parseFloat(materialVolume) > 0) {
       const volumeCm3 = parseFloat(materialVolume);
       const density = parseFloat(customDensity);
       const costPerKg = parseFloat(materialCostPerKg);
       
-      // Volume (cm³) * density (g/cm³) / 1000 = weight in kg
       const weightKg = volumeCm3 * density / 1000;
-      // Weight (kg) * cost per kg
       materialCostValue = weightKg * costPerKg * quantityNum;
       setMaterialCost(materialCostValue.toFixed(2));
     }
 
-    // Get finishing costs from selected processes
     const selectedProcesses = finishingProcesses.filter(p => p.selected && p.id !== "none");
     const finishingCostPerPiece = selectedProcesses.reduce((total, process) => total + process.cost, 0);
     const totalFinishingCost = finishingCostPerPiece * quantityNum;
     
-    // Tool cost per piece
     const toolCostValue = parseFloat(toolCost) || 0;
     const toolCostPerPiece = toolCostValue / quantityNum;
 
-    // Fixed costs (setup and programming) are divided by quantity
-    // Variable costs (machine time) are per piece
     const fixedCostsPerPiece = (setupCostValue + programmingCostValue) / quantityNum;
     const variableCostsPerPiece = machineCost + finishingCostPerPiece + toolCostPerPiece;
     const materialCostPerPiece = materialCostValue / quantityNum;
     
     let totalCostPerPiece = fixedCostsPerPiece + variableCostsPerPiece + materialCostPerPiece;
     
-    // Apply markup if needed
     if (addMarkup) {
       const markup = parseFloat(markupPercentage) / 100;
       totalCostPerPiece = totalCostPerPiece * (1 + markup);
@@ -239,10 +211,8 @@ const MachiningCalculator = () => {
     
     const totalBatchCost = totalCostPerPiece * quantityNum;
 
-    // Calculate optimal batch sizes
     calculateOptimalBatchSizes();
 
-    // Format and set result values
     setTotalMachineTime(totalMachineTimeValue.toFixed(2));
     setCostPerPiece(totalCostPerPiece.toFixed(2));
     setTotalLotCost(totalBatchCost.toFixed(2));
@@ -262,14 +232,12 @@ const MachiningCalculator = () => {
   };
 
   const handleFinishingChange = (processes: ProcessOption[]) => {
-    // If "None" is selected, deselect all others
     if (processes.find(p => p.id === "none")?.selected) {
       setFinishingProcesses(processes.map(p => ({
         ...p,
         selected: p.id === "none"
       })));
     } else {
-      // If any other is selected, deselect "None"
       setFinishingProcesses(processes.map(p => ({
         ...p,
         selected: p.id === "none" ? false : p.selected
@@ -278,7 +246,6 @@ const MachiningCalculator = () => {
   };
 
   const resetForm = () => {
-    // Reset time inputs
     setMachineTimeHours("");
     setMachineTimeMinutes("");
     setSetupTimeHours("");
@@ -286,25 +253,21 @@ const MachiningCalculator = () => {
     setProgrammingTimeHours("");
     setProgrammingTimeMinutes("");
 
-    // Reset cost inputs
     setMachineHourlyCost("");
     setSetupHourlyCost("");
     setProgrammingHourlyCost("");
     setQuantity("1");
 
-    // Reset material inputs
     setSelectedMaterial("aluminum");
     setMaterialVolume("");
     setMaterialCostPerKg(materialCosts["aluminum"].toString());
     setCustomDensity(materialDensities["aluminum"].toString());
 
-    // Reset dimension inputs
     setLength("");
     setWidth("");
     setThickness("");
     setDiameter("");
     
-    // Reset new features
     setSetupCount("1");
     setFinishingProcesses(initialFinishingProcesses);
     setBatchSizes([]);
@@ -314,7 +277,6 @@ const MachiningCalculator = () => {
     setMarkupPercentage("20");
     setIncludeProgramming(true);
 
-    // Reset results
     setTotalMachineTime("0");
     setCostPerPiece("0");
     setTotalLotCost("0");
@@ -325,7 +287,7 @@ const MachiningCalculator = () => {
       description: "All inputs have been cleared.",
     });
   };
-  
+
   const printQuote = () => {
     const printWindow = window.open('', '_blank');
     
@@ -337,6 +299,11 @@ const MachiningCalculator = () => {
       });
       return;
     }
+    
+    const selectedProcesses = finishingProcesses.filter(p => p.selected);
+    const selectedFinishingText = selectedProcesses.length > 0 
+      ? selectedProcesses.map(p => p.name).join(", ") 
+      : "None";
     
     printWindow.document.write(`
       <html>
@@ -370,7 +337,7 @@ const MachiningCalculator = () => {
             <table>
               <tr><th>Quantity:</th><td>${quantity} pieces</td></tr>
               <tr><th>Material:</th><td>${selectedMaterial}</td></tr>
-              <tr><th>Finishing:</th><td>${selectedFinishing}</td></tr>
+              <tr><th>Finishing:</th><td>${selectedFinishingText}</td></tr>
               <tr><th>Setup Count:</th><td>${setupCount}</td></tr>
             </table>
           </div>
@@ -414,11 +381,10 @@ const MachiningCalculator = () => {
       description: "Quote has been prepared for printing.",
     });
   };
-  
+
   const renderMaterialComparison = () => {
     if (!materialComparison) return null;
     
-    // Get volume and calculate weight for each material
     const volumeCm3 = parseFloat(materialVolume) || 0;
     if (volumeCm3 <= 0) return null;
     
@@ -438,9 +404,7 @@ const MachiningCalculator = () => {
             </TableHeader>
             <TableBody>
               {Object.entries(materialDensities).map(([material, density]) => {
-                // Calculate weight: volume (cm³) * density (g/cm³) / 1000 = weight in kg
                 const weightKg = volumeCm3 * density / 1000;
-                // Calculate cost: weight (kg) * cost per kg * quantity
                 const cost = weightKg * materialCosts[material] * parseInt(quantity || "1");
                 
                 return (
