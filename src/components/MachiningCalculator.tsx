@@ -6,11 +6,13 @@ import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Calculator, Box, FileText, Printer } from "lucide-react";
+import { Calculator, Box, FileText, Printer, Clock } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import ResultCard from "./ResultCard";
 import TimeInput from "./TimeInput";
 import { Switch } from "@/components/ui/switch";
+import ProcessesManager, { ProcessOption } from "./ProcessesManager";
+import TimeCalculator from "./TimeCalculator";
 import {
   Dialog,
   DialogContent,
@@ -51,17 +53,17 @@ const materialCosts: { [key: string]: number } = {
   "plastic-nylon": 7.0
 };
 
-// Surface finishing options and costs in USD
-const finishingOptions: { [key: string]: number } = {
-  "none": 0,
-  "deburring": 15, 
-  "brushing": 20,
-  "polishing": 45,
-  "anodizing": 50,
-  "nickel-plating": 65,
-  "powder-coating": 40,
-  "chromate": 30
-};
+// Initialize finishing processes
+const initialFinishingProcesses: ProcessOption[] = [
+  { id: "none", name: "None", cost: 0, selected: true },
+  { id: "deburring", name: "Deburring", cost: 15, selected: false },
+  { id: "brushing", name: "Brushing", cost: 20, selected: false },
+  { id: "polishing", name: "Polishing", cost: 45, selected: false },
+  { id: "anodizing", name: "Anodizing", cost: 50, selected: false },
+  { id: "nickel-plating", name: "Nickel Plating", cost: 65, selected: false },
+  { id: "powder-coating", name: "Powder Coating", cost: 40, selected: false },
+  { id: "chromate", name: "Chromate", cost: 30, selected: false }
+];
 
 const MachiningCalculator = () => {
   const { toast } = useToast();
@@ -95,7 +97,7 @@ const MachiningCalculator = () => {
   const [diameter, setDiameter] = useState<string>("");
 
   // Unit system toggle (Metric / SAE)
-  const [isMetric, setIsMetric] = useState<boolean>(true);
+  const [isMetric, setIsMetric] = useState<boolean>(false); // Changed default to SAE/Imperial
 
   // Results
   const [totalMachineTime, setTotalMachineTime] = useState<string>("0");
@@ -105,7 +107,7 @@ const MachiningCalculator = () => {
 
   // New features
   const [setupCount, setSetupCount] = useState<string>("1");
-  const [selectedFinishing, setSelectedFinishing] = useState<string>("none");
+  const [finishingProcesses, setFinishingProcesses] = useState<ProcessOption[]>(initialFinishingProcesses);
   const [batchSizes, setBatchSizes] = useState<string[]>([]);
   const [toolCost, setToolCost] = useState<string>("0");
   const [materialComparison, setMaterialComparison] = useState<boolean>(false);
@@ -212,8 +214,9 @@ const MachiningCalculator = () => {
       setMaterialCost(materialCostValue.toFixed(2));
     }
 
-    // Get finishing cost
-    const finishingCostPerPiece = finishingOptions[selectedFinishing] || 0;
+    // Get finishing costs from selected processes
+    const selectedProcesses = finishingProcesses.filter(p => p.selected && p.id !== "none");
+    const finishingCostPerPiece = selectedProcesses.reduce((total, process) => total + process.cost, 0);
     const totalFinishingCost = finishingCostPerPiece * quantityNum;
     
     // Tool cost per piece
@@ -258,6 +261,22 @@ const MachiningCalculator = () => {
     }
   };
 
+  const handleFinishingChange = (processes: ProcessOption[]) => {
+    // If "None" is selected, deselect all others
+    if (processes.find(p => p.id === "none")?.selected) {
+      setFinishingProcesses(processes.map(p => ({
+        ...p,
+        selected: p.id === "none"
+      })));
+    } else {
+      // If any other is selected, deselect "None"
+      setFinishingProcesses(processes.map(p => ({
+        ...p,
+        selected: p.id === "none" ? false : p.selected
+      })));
+    }
+  };
+
   const resetForm = () => {
     // Reset time inputs
     setMachineTimeHours("");
@@ -287,7 +306,7 @@ const MachiningCalculator = () => {
     
     // Reset new features
     setSetupCount("1");
-    setSelectedFinishing("none");
+    setFinishingProcesses(initialFinishingProcesses);
     setBatchSizes([]);
     setToolCost("0");
     setMaterialComparison(false);
@@ -442,9 +461,10 @@ const MachiningCalculator = () => {
   return (
     <div className="max-w-4xl mx-auto">
       <Tabs defaultValue="machining" className="w-full">
-        <TabsList className="grid grid-cols-3">
+        <TabsList className="grid grid-cols-4">
           <TabsTrigger value="machining">Machining Calculator</TabsTrigger>
           <TabsTrigger value="material">Material Calculator</TabsTrigger>
+          <TabsTrigger value="time">Time Calculator</TabsTrigger>
           <TabsTrigger value="advanced">Advanced Options</TabsTrigger>
         </TabsList>
         
@@ -495,7 +515,6 @@ const MachiningCalculator = () => {
                       minutesValue={programmingTimeMinutes}
                       onHoursChange={(e) => setProgrammingTimeHours(e.target.value)}
                       onMinutesChange={(e) => setProgrammingTimeMinutes(e.target.value)}
-                      disabled={!includeProgramming}
                     />
                   </div>
                 </div>
@@ -758,28 +777,18 @@ const MachiningCalculator = () => {
                     />
                   </div>
                   
-                  <div>
-                    <Label htmlFor="finishing">Surface Finishing:</Label>
-                    <Select value={selectedFinishing} onValueChange={setSelectedFinishing}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select finishing" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="none">None</SelectItem>
-                        <SelectItem value="deburring">Deburring (+$15)</SelectItem>
-                        <SelectItem value="brushing">Brushing (+$20)</SelectItem>
-                        <SelectItem value="polishing">Polishing (+$45)</SelectItem>
-                        <SelectItem value="anodizing">Anodizing (+$50)</SelectItem>
-                        <SelectItem value="nickel-plating">Nickel Plating (+$65)</SelectItem>
-                        <SelectItem value="powder-coating">Powder Coating (+$40)</SelectItem>
-                        <SelectItem value="chromate">Chromate (+$30)</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
+                  <ProcessesManager 
+                    processes={finishingProcesses} 
+                    onChange={handleFinishingChange} 
+                  />
                 </div>
               </div>
               
               {renderMaterialComparison()}
+            </TabsContent>
+            
+            <TabsContent value="time" className="mt-0">
+              <TimeCalculator />
             </TabsContent>
             
             <TabsContent value="advanced" className="mt-0">
@@ -903,4 +912,3 @@ const MachiningCalculator = () => {
 };
 
 export default MachiningCalculator;
-

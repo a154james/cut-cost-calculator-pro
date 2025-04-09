@@ -1,41 +1,50 @@
 
+import React from "react";
 import { Input } from "@/components/ui/input";
-import { ChangeEvent } from "react";
 
 interface TimeInputProps {
   hoursValue: string;
   minutesValue: string;
-  onHoursChange: (e: ChangeEvent<HTMLInputElement>) => void;
-  onMinutesChange: (e: ChangeEvent<HTMLInputElement>) => void;
+  onHoursChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  onMinutesChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  disabled?: boolean;
 }
 
-const TimeInput = ({ 
-  hoursValue, 
-  minutesValue, 
-  onHoursChange, 
-  onMinutesChange 
-}: TimeInputProps) => {
+const TimeInput = ({ hoursValue, minutesValue, onHoursChange, onMinutesChange, disabled }: TimeInputProps) => {
   return (
     <div className="flex space-x-2 mt-1">
-      <div className="w-full">
-        <Input
-          type="number"
-          min="0"
-          step="0.01"
-          placeholder="Hours"
-          value={hoursValue}
-          onChange={onHoursChange}
-        />
+      <div className="w-1/2">
+        <div className="relative">
+          <Input
+            type="number"
+            min="0"
+            step="0.25"
+            placeholder="0"
+            value={hoursValue}
+            onChange={onHoursChange}
+            disabled={disabled}
+          />
+          <div className="absolute inset-y-0 right-3 flex items-center pointer-events-none">
+            <span className="text-sm text-muted-foreground">hr</span>
+          </div>
+        </div>
       </div>
-      <div className="w-full">
-        <Input
-          type="number"
-          min="0"
-          max="59"
-          placeholder="Minutes"
-          value={minutesValue}
-          onChange={onMinutesChange}
-        />
+      <div className="w-1/2">
+        <div className="relative">
+          <Input
+            type="number"
+            min="0"
+            max="59"
+            step="1"
+            placeholder="0"
+            value={minutesValue}
+            onChange={onMinutesChange}
+            disabled={disabled}
+          />
+          <div className="absolute inset-y-0 right-3 flex items-center pointer-events-none">
+            <span className="text-sm text-muted-foreground">min</span>
+          </div>
+        </div>
       </div>
     </div>
   );
