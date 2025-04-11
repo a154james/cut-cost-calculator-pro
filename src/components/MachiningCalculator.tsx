@@ -729,7 +729,7 @@ const MachiningCalculator = () => {
                 
                 <div className="space-y-4">
                   <div>
-                    <Label htmlFor="material-cost">Material Cost per kg ($):</Label>
+                    <Label htmlFor="material-cost">Material Cost per {isMetric ? "kg" : "lb"} ($):</Label>
                     <Input
                       id="material-cost"
                       type="number"
@@ -742,7 +742,7 @@ const MachiningCalculator = () => {
                   </div>
                   
                   <div>
-                    <Label htmlFor="material-density">Material Density (g/cm³):</Label>
+                    <Label htmlFor="material-density">Material Density ({isMetric ? "g/cm³" : "lb/in³"}):</Label>
                     <Input
                       id="material-density"
                       type="number"
