@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -158,7 +159,7 @@ const MachiningCalculator = () => {
     if (
       !machineHourlyCost || 
       !setupHourlyCost || 
-      !programmingHourlyCost || 
+      (includeProgramming && !programmingHourlyCost) || 
       !quantity ||
       (parseFloat(quantity) <= 0)
     ) {
@@ -172,7 +173,7 @@ const MachiningCalculator = () => {
 
     const totalMachineTimeValue = calculateTotalTime(machineTimeHours, machineTimeMinutes);
     const totalSetupTimeValue = calculateTotalTime(setupTimeHours, setupTimeMinutes);
-    const totalProgrammingTimeValue = calculateTotalTime(programmingTimeHours, programmingTimeMinutes);
+    const totalProgrammingTimeValue = includeProgramming ? calculateTotalTime(programmingTimeHours, programmingTimeMinutes) : 0;
 
     const machineCost = totalMachineTimeValue * parseFloat(machineHourlyCost);
     const setupCostValue = totalSetupTimeValue * parseFloat(setupHourlyCost) * parseInt(setupCount || "1");
@@ -479,6 +480,7 @@ const MachiningCalculator = () => {
                       minutesValue={programmingTimeMinutes}
                       onHoursChange={(e) => setProgrammingTimeHours(e.target.value)}
                       onMinutesChange={(e) => setProgrammingTimeMinutes(e.target.value)}
+                      disabled={!includeProgramming}
                     />
                   </div>
                 </div>
