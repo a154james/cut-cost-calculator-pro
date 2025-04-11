@@ -171,15 +171,22 @@ const MachiningCalculator = () => {
       return;
     }
 
-    const totalMachineTimeValue = calculateTotalTime(machineTimeHours, machineTimeMinutes);
-    const totalSetupTimeValue = calculateTotalTime(setupTimeHours, setupTimeMinutes);
+    const quantityNum = parseInt(quantity);
+    const setupCountNum = parseInt(setupCount || "1");
+    
+    // Machine time is per piece, multiply by quantity
+    const machineTimePerPiece = calculateTotalTime(machineTimeHours, machineTimeMinutes);
+    const totalMachineTimeValue = machineTimePerPiece * quantityNum;
+    
+    // Setup time is per setup, multiply by setup count
+    const setupTimePerSetup = calculateTotalTime(setupTimeHours, setupTimeMinutes);
+    const totalSetupTimeValue = setupTimePerSetup * setupCountNum;
+    
     const totalProgrammingTimeValue = includeProgramming ? calculateTotalTime(programmingTimeHours, programmingTimeMinutes) : 0;
 
     const machineCost = totalMachineTimeValue * parseFloat(machineHourlyCost);
-    const setupCostValue = totalSetupTimeValue * parseFloat(setupHourlyCost) * parseInt(setupCount || "1");
+    const setupCostValue = totalSetupTimeValue * parseFloat(setupHourlyCost);
     const programmingCostValue = includeProgramming ? totalProgrammingTimeValue * parseFloat(programmingHourlyCost) : 0;
-    
-    const quantityNum = parseInt(quantity);
     
     let materialCostValue = 0;
     if (materialVolume && parseFloat(materialVolume) > 0) {
@@ -200,7 +207,7 @@ const MachiningCalculator = () => {
     const toolCostPerPiece = toolCostValue / quantityNum;
 
     const fixedCostsPerPiece = (setupCostValue + programmingCostValue) / quantityNum;
-    const variableCostsPerPiece = machineCost + finishingCostPerPiece + toolCostPerPiece;
+    const variableCostsPerPiece = (machineCost / quantityNum) + finishingCostPerPiece + toolCostPerPiece;
     const materialCostPerPiece = materialCostValue / quantityNum;
     
     let totalCostPerPiece = fixedCostsPerPiece + variableCostsPerPiece + materialCostPerPiece;
@@ -446,7 +453,9 @@ const MachiningCalculator = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-4">
                   <div>
-                    <Label htmlFor="machine-time">Machine Time:</Label>
+                    <Label htmlFor="machine-time" className="flex items-center">
+                      Machine Time <span className="text-xs ml-2 text-muted-foreground">(per piece)</span>:
+                    </Label>
                     <TimeInput
                       hoursValue={machineTimeHours}
                       minutesValue={machineTimeMinutes}
@@ -456,7 +465,9 @@ const MachiningCalculator = () => {
                   </div>
                   
                   <div>
-                    <Label htmlFor="setup-time">Setup Time:</Label>
+                    <Label htmlFor="setup-time" className="flex items-center">
+                      Setup Time <span className="text-xs ml-2 text-muted-foreground">(per setup)</span>:
+                    </Label>
                     <TimeInput
                       hoursValue={setupTimeHours}
                       minutesValue={setupTimeMinutes}
