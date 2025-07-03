@@ -318,62 +318,178 @@ const MachiningCalculator = () => {
         <head>
           <title>CNC Machining Quote</title>
           <style>
-            body { font-family: Arial, sans-serif; margin: 40px; }
-            h1, h2 { color: #333; }
-            .quote-header { margin-bottom: 30px; }
-            .quote-section { margin-bottom: 20px; }
-            table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
-            th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-            th { background-color: #f2f2f2; }
-            .total { font-weight: bold; }
-            .footer { margin-top: 50px; font-size: 0.8em; color: #666; }
+            * { box-sizing: border-box; }
+            body { 
+              font-family: 'Georgia', 'Times New Roman', serif; 
+              margin: 0; 
+              padding: 40px;
+              background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+              color: #1e293b;
+              line-height: 1.6;
+            }
+            .container {
+              max-width: 800px;
+              margin: 0 auto;
+              background: white;
+              padding: 40px;
+              border-radius: 12px;
+              box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            }
+            h1 { 
+              color: #0f172a; 
+              font-size: 2.5rem;
+              font-weight: 700;
+              margin: 0 0 8px 0;
+              text-align: center;
+              border-bottom: 3px solid #3b82f6;
+              padding-bottom: 16px;
+            }
+            h2 { 
+              color: #334155; 
+              font-size: 1.4rem;
+              font-weight: 600;
+              margin: 32px 0 16px 0;
+              padding: 12px 0;
+              border-bottom: 1px solid #e2e8f0;
+            }
+            .quote-header { 
+              text-align: center;
+              margin-bottom: 40px;
+              padding: 24px;
+              background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+              border-radius: 8px;
+              border-left: 4px solid #3b82f6;
+            }
+            .quote-header p {
+              margin: 4px 0;
+              font-size: 1.1rem;
+              color: #475569;
+            }
+            .quote-section { 
+              margin-bottom: 32px;
+              padding: 20px;
+              border-radius: 8px;
+              background: #fafafa;
+            }
+            table { 
+              width: 100%; 
+              border-collapse: separate;
+              border-spacing: 0;
+              margin-bottom: 24px;
+              border-radius: 8px;
+              overflow: hidden;
+              box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            }
+            th, td { 
+              padding: 16px 20px; 
+              text-align: left;
+              border-bottom: 1px solid #e2e8f0;
+            }
+            th { 
+              background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+              color: white;
+              font-weight: 600;
+              font-size: 0.95rem;
+              text-transform: uppercase;
+              letter-spacing: 0.5px;
+            }
+            td {
+              background: white;
+              font-size: 1rem;
+            }
+            tr:hover td {
+              background: #f8fafc;
+            }
+            .total { 
+              font-weight: 700;
+              color: #0f172a;
+              background: #f1f5f9 !important;
+              font-size: 1.1rem;
+            }
+            .footer { 
+              margin-top: 60px; 
+              padding: 24px;
+              font-size: 0.9rem; 
+              color: #64748b;
+              text-align: center;
+              border-top: 2px solid #e2e8f0;
+              background: #f8fafc;
+              border-radius: 8px;
+            }
+            .footer p {
+              margin: 8px 0;
+            }
+            .highlight {
+              background: #fef3c7;
+              padding: 2px 6px;
+              border-radius: 4px;
+              font-weight: 600;
+            }
             @media print {
-              body { margin: 0.5cm; }
+              body { 
+                margin: 0; 
+                padding: 20px;
+                background: white;
+              }
+              .container {
+                box-shadow: none;
+                border-radius: 0;
+              }
               button { display: none; }
+              .quote-header, .quote-section {
+                background: white !important;
+              }
+              th {
+                background: #3b82f6 !important;
+                -webkit-print-color-adjust: exact;
+                color-adjust: exact;
+              }
             }
           </style>
         </head>
         <body>
-          <div class="quote-header">
-            <h1>CNC Machining Quote</h1>
-            <p>Date: ${new Date().toLocaleDateString()}</p>
-            <p>Quote Reference: QT-${Date.now().toString().substring(6)}</p>
+          <div class="container">
+            <div class="quote-header">
+              <h1>CNC Machining Quote</h1>
+              <p><span class="highlight">Date:</span> ${new Date().toLocaleDateString()}</p>
+              <p><span class="highlight">Quote Reference:</span> QT-${Date.now().toString().substring(6)}</p>
+            </div>
+            
+            <div class="quote-section">
+              <h2>📋 Job Details</h2>
+              <table>
+                <tr><th>Quantity</th><td>${quantity} pieces</td></tr>
+                <tr><th>Material</th><td>${selectedMaterial.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}</td></tr>
+                <tr><th>Finishing</th><td>${selectedFinishingText}</td></tr>
+                <tr><th>Setup Count</th><td>${setupCount}</td></tr>
+              </table>
+            </div>
+            
+            <div class="quote-section">
+              <h2>💰 Cost Breakdown</h2>
+              <table>
+                <tr><th>Machine Time</th><td>${totalMachineTime} hours</td></tr>
+                <tr><th>Material Cost</th><td>$${materialCost}</td></tr>
+                <tr><th>Cost Per Piece</th><td>$${costPerPiece}</td></tr>
+                <tr class="total"><th>Total Lot Cost</th><td><strong>$${totalLotCost}</strong></td></tr>
+              </table>
+            </div>
+            
+            <div class="quote-section">
+              <h2>📦 Batch Information</h2>
+              <table>
+                <tr><th colspan="2">Batch Distribution</th></tr>
+                ${batchSizes.map((batch, index) => `<tr><td colspan="2">${batch}</td></tr>`).join('')}
+              </table>
+            </div>
+            
+            <div class="footer">
+              <p><strong>Quote Validity:</strong> This quote is valid for 30 days from the date issued.</p>
+              <p><strong>Terms:</strong> Standard terms and conditions apply.</p>
+            </div>
+            
+            <button onclick="window.print();setTimeout(window.close, 500)" style="margin: 20px auto; display: block; padding: 12px 24px; background: #3b82f6; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 16px;">Print Quote</button>
           </div>
-          
-          <div class="quote-section">
-            <h2>Job Details</h2>
-            <table>
-              <tr><th>Quantity:</th><td>${quantity} pieces</td></tr>
-              <tr><th>Material:</th><td>${selectedMaterial}</td></tr>
-              <tr><th>Finishing:</th><td>${selectedFinishingText}</td></tr>
-              <tr><th>Setup Count:</th><td>${setupCount}</td></tr>
-            </table>
-          </div>
-          
-          <div class="quote-section">
-            <h2>Cost Breakdown</h2>
-            <table>
-              <tr><th>Machine Time:</th><td>${totalMachineTime} hours</td></tr>
-              <tr><th>Material Cost:</th><td>$${materialCost}</td></tr>
-              <tr><th>Cost Per Piece:</th><td>$${costPerPiece}</td></tr>
-              <tr><th class="total">Total Lot Cost:</th><td class="total">$${totalLotCost}</td></tr>
-            </table>
-          </div>
-          
-          <div class="quote-section">
-            <h2>Batch Information</h2>
-            <table>
-              <tr><th>Batch Distribution:</th></tr>
-              ${batchSizes.map(batch => `<tr><td>${batch}</td></tr>`).join('')}
-            </table>
-          </div>
-          
-          <div class="footer">
-            <p>This quote is valid for 30 days from the date issued.</p>
-            <p>Terms and conditions apply.</p>
-          </div>
-          
-          <button onclick="window.print();setTimeout(window.close, 500)">Print Quote</button>
         </body>
       </html>
     `);
