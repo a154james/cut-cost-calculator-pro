@@ -23,9 +23,9 @@ const TimeInput = ({ hoursValue, minutesValue, onHoursChange, onMinutesChange, d
             value={hoursValue}
             onChange={onHoursChange}
             disabled={disabled}
-            className="pr-14" // Extra padding to avoid spinner arrows
+            className="pr-8 [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none [-moz-appearance:textfield]"
           />
-          <div className="absolute inset-y-0 right-1 flex items-center pointer-events-none">
+          <div className="absolute inset-y-0 right-2 flex items-center pointer-events-none">
             <span className="text-xs text-muted-foreground">hr</span>
           </div>
         </div>
@@ -41,9 +41,9 @@ const TimeInput = ({ hoursValue, minutesValue, onHoursChange, onMinutesChange, d
             value={minutesValue}
             onChange={onMinutesChange}
             disabled={disabled}
-            className="pr-16" // Extra padding to avoid spinner arrows
+            className="pr-10 [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none [-moz-appearance:textfield]"
           />
-          <div className="absolute inset-y-0 right-1 flex items-center pointer-events-none">
+          <div className="absolute inset-y-0 right-2 flex items-center pointer-events-none">
             <span className="text-xs text-muted-foreground">min</span>
           </div>
         </div>
