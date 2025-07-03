@@ -23,10 +23,10 @@ const TimeInput = ({ hoursValue, minutesValue, onHoursChange, onMinutesChange, d
             value={hoursValue}
             onChange={onHoursChange}
             disabled={disabled}
-            className="pr-9" // Increased right padding to make room for the text
+            className="pr-14" // Extra padding to avoid spinner arrows
           />
-          <div className="absolute inset-y-0 right-8 flex items-center pointer-events-none">
-            <span className="text-sm text-muted-foreground">hr</span>
+          <div className="absolute inset-y-0 right-1 flex items-center pointer-events-none">
+            <span className="text-xs text-muted-foreground">hr</span>
           </div>
         </div>
       </div>
@@ -41,10 +41,10 @@ const TimeInput = ({ hoursValue, minutesValue, onHoursChange, onMinutesChange, d
             value={minutesValue}
             onChange={onMinutesChange}
             disabled={disabled}
-            className="pr-12" // Increased right padding to make room for the text
+            className="pr-16" // Extra padding to avoid spinner arrows
           />
-          <div className="absolute inset-y-0 right-8 flex items-center pointer-events-none">
-            <span className="text-sm text-muted-foreground">min</span>
+          <div className="absolute inset-y-0 right-1 flex items-center pointer-events-none">
+            <span className="text-xs text-muted-foreground">min</span>
           </div>
         </div>
       </div>
