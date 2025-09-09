@@ -13,6 +13,7 @@ import TimeInput from "./TimeInput";
 import { Switch } from "@/components/ui/switch";
 import ProcessesManager, { ProcessOption } from "./ProcessesManager";
 import TimeCalculator from "./TimeCalculator";
+import MaterialCalculator from "./MaterialCalculator";
 import {
   Dialog,
   DialogContent,
@@ -26,30 +27,6 @@ import { Tabs as DialogTabs, TabsContent as DialogTabsContent, TabsList as Dialo
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-
-const materialDensities: { [key: string]: number } = {
-  "aluminum": 2.7,
-  "steel": 7.85,
-  "stainless-steel": 8.0,
-  "brass": 8.5,
-  "copper": 8.96,
-  "titanium": 4.5,
-  "plastic-pom": 1.41,
-  "plastic-abs": 1.04,
-  "plastic-nylon": 1.15
-};
-
-const materialCosts: { [key: string]: number } = {
-  "aluminum": 4.5,
-  "steel": 2.5,
-  "stainless-steel": 5.0,
-  "brass": 8.0,
-  "copper": 9.0,
-  "titanium": 35.0,
-  "plastic-pom": 6.0,
-  "plastic-abs": 5.0,
-  "plastic-nylon": 7.0
-};
 
 const initialFinishingProcesses: ProcessOption[] = [
   { id: "none", name: "None", cost: 0, selected: true },
@@ -77,20 +54,6 @@ const MachiningCalculator = () => {
   const [programmingHourlyCost, setProgrammingHourlyCost] = useState<string>("");
   const [quantity, setQuantity] = useState<string>("1");
 
-  const [selectedMaterial, setSelectedMaterial] = useState<string>("aluminum");
-  const [materialVolume, setMaterialVolume] = useState<string>("");
-  const [materialCostPerKg, setMaterialCostPerKg] = useState<string>(
-    materialCosts[selectedMaterial].toString()
-  );
-  const [customDensity, setCustomDensity] = useState<string>("2.7");
-
-  const [length, setLength] = useState<string>("");
-  const [width, setWidth] = useState<string>("");
-  const [thickness, setThickness] = useState<string>("");
-  const [diameter, setDiameter] = useState<string>("");
-
-  const [isMetric, setIsMetric] = useState<boolean>(false);
-
   const [totalMachineTime, setTotalMachineTime] = useState<string>("0");
   const [costPerPiece, setCostPerPiece] = useState<string>("0");
   const [totalLotCost, setTotalLotCost] = useState<string>("0");
@@ -100,7 +63,6 @@ const MachiningCalculator = () => {
   const [finishingProcesses, setFinishingProcesses] = useState<ProcessOption[]>(initialFinishingProcesses);
   const [batchSizes, setBatchSizes] = useState<string[]>([]);
   const [toolCost, setToolCost] = useState<string>("0");
-  const [materialComparison, setMaterialComparison] = useState<boolean>(false);
   const [addMarkup, setAddMarkup] = useState<boolean>(false);
   const [markupPercentage, setMarkupPercentage] = useState<string>("20");
   const [includeProgramming, setIncludeProgramming] = useState<boolean>(true);
@@ -130,29 +92,6 @@ const MachiningCalculator = () => {
     const hoursNum = parseFloat(hours) || 0;
     const minutesNum = parseFloat(minutes) || 0;
     return hoursNum + minutesNum / 60;
-  };
-
-  const calculateVolume = () => {
-    let volume = 0;
-    
-    const lengthVal = parseFloat(length) || 0;
-    const widthVal = parseFloat(width) || 0;
-    const thicknessVal = parseFloat(thickness) || 0;
-    const diameterVal = parseFloat(diameter) || 0;
-    
-    if (diameterVal > 0 && lengthVal > 0) {
-      volume = Math.PI * Math.pow(diameterVal / 2, 2) * lengthVal;
-    } else if (lengthVal > 0 && widthVal > 0 && thicknessVal > 0) {
-      volume = lengthVal * widthVal * thicknessVal;
-    }
-    
-    if (!isMetric && volume > 0) {
-      volume *= 16.387064;
-    }
-    
-    if (volume > 0) {
-      setMaterialVolume(volume.toFixed(2));
-    }
   };
 
   const calculateCosts = () => {
@@ -188,16 +127,8 @@ const MachiningCalculator = () => {
     const setupCostValue = totalSetupTimeValue * parseFloat(setupHourlyCost);
     const programmingCostValue = includeProgramming ? totalProgrammingTimeValue * parseFloat(programmingHourlyCost) : 0;
     
-    let materialCostValue = 0;
-    if (materialVolume && parseFloat(materialVolume) > 0) {
-      const volumeCm3 = parseFloat(materialVolume);
-      const density = parseFloat(customDensity);
-      const costPerKg = parseFloat(materialCostPerKg);
-      
-      const weightKg = volumeCm3 * density / 1000;
-      materialCostValue = weightKg * costPerKg * quantityNum;
-      setMaterialCost(materialCostValue.toFixed(2));
-    }
+    // Material cost comes from the MaterialCalculator component
+    const materialCostValue = parseFloat(materialCost) || 0;
 
     const selectedProcesses = finishingProcesses.filter(p => p.selected && p.id !== "none");
     const finishingCostPerPiece = selectedProcesses.reduce((total, process) => total + process.cost, 0);
@@ -231,14 +162,6 @@ const MachiningCalculator = () => {
     });
   };
 
-  const handleMaterialChange = (value: string) => {
-    setSelectedMaterial(value);
-    if (value in materialCosts) {
-      setMaterialCostPerKg(materialCosts[value].toString());
-      setCustomDensity(materialDensities[value].toString());
-    }
-  };
-
   const handleFinishingChange = (processes: ProcessOption[]) => {
     if (processes.find(p => p.id === "none")?.selected) {
       setFinishingProcesses(processes.map(p => ({
@@ -265,22 +188,11 @@ const MachiningCalculator = () => {
     setSetupHourlyCost("");
     setProgrammingHourlyCost("");
     setQuantity("1");
-
-    setSelectedMaterial("aluminum");
-    setMaterialVolume("");
-    setMaterialCostPerKg(materialCosts["aluminum"].toString());
-    setCustomDensity(materialDensities["aluminum"].toString());
-
-    setLength("");
-    setWidth("");
-    setThickness("");
-    setDiameter("");
     
     setSetupCount("1");
     setFinishingProcesses(initialFinishingProcesses);
     setBatchSizes([]);
     setToolCost("0");
-    setMaterialComparison(false);
     setAddMarkup(false);
     setMarkupPercentage("20");
     setIncludeProgramming(true);
@@ -459,7 +371,7 @@ const MachiningCalculator = () => {
               <h2>📋 Job Details</h2>
               <table>
                 <tr><th>Quantity</th><td>${quantity} pieces</td></tr>
-                <tr><th>Material</th><td>${selectedMaterial.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}</td></tr>
+                <tr><th>Material</th><td>See Material Calculator</td></tr>
                 <tr><th>Finishing</th><td>${selectedFinishingText}</td></tr>
                 <tr><th>Setup Count</th><td>${setupCount}</td></tr>
               </table>
@@ -504,46 +416,6 @@ const MachiningCalculator = () => {
       title: "Print Ready",
       description: "Quote has been prepared for printing.",
     });
-  };
-
-  const renderMaterialComparison = () => {
-    if (!materialComparison) return null;
-    
-    const volumeCm3 = parseFloat(materialVolume) || 0;
-    if (volumeCm3 <= 0) return null;
-    
-    return (
-      <Card className="mt-4">
-        <CardHeader className="pb-2">
-          <CardTitle className="text-lg">Material Comparison</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Material</TableHead>
-                <TableHead>Weight (kg)</TableHead>
-                <TableHead>Cost</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {Object.entries(materialDensities).map(([material, density]) => {
-                const weightKg = volumeCm3 * density / 1000;
-                const cost = weightKg * materialCosts[material] * parseInt(quantity || "1");
-                
-                return (
-                  <TableRow key={material} className={material === selectedMaterial ? "bg-muted/50" : ""}>
-                    <TableCell className="font-medium">{material.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}</TableCell>
-                    <TableCell>{weightKg.toFixed(3)}</TableCell>
-                    <TableCell>${cost.toFixed(2)}</TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
-    );
   };
 
   return (
@@ -682,202 +554,11 @@ const MachiningCalculator = () => {
             </TabsContent>
             
             <TabsContent value="material" className="space-y-6 mt-0">
-              <div className="flex items-center justify-end mb-4">
-                <div className="flex items-center space-x-2">
-                  <Label htmlFor="unit-system" className="text-sm font-medium">SAE</Label>
-                  <Switch 
-                    id="unit-system" 
-                    checked={isMetric}
-                    onCheckedChange={setIsMetric}
-                  />
-                  <Label htmlFor="unit-system" className="text-sm font-medium">Metric</Label>
-                </div>
-              </div>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-4">
-                  <div>
-                    <Label htmlFor="material-type">Material Type:</Label>
-                    <Select value={selectedMaterial} onValueChange={handleMaterialChange}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select material" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="aluminum">Aluminum</SelectItem>
-                        <SelectItem value="steel">Steel</SelectItem>
-                        <SelectItem value="stainless-steel">Stainless Steel</SelectItem>
-                        <SelectItem value="brass">Brass</SelectItem>
-                        <SelectItem value="copper">Copper</SelectItem>
-                        <SelectItem value="titanium">Titanium</SelectItem>
-                        <SelectItem value="plastic-pom">Plastic (POM)</SelectItem>
-                        <SelectItem value="plastic-abs">Plastic (ABS)</SelectItem>
-                        <SelectItem value="plastic-nylon">Plastic (Nylon)</SelectItem>
-                        <SelectItem value="custom">Custom Material</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  
-                  <Dialog>
-                    <DialogTrigger asChild>
-                      <Button variant="outline" className="w-full" type="button">
-                        <Box className="mr-2 h-4 w-4" />
-                        Enter Part Dimensions
-                      </Button>
-                    </DialogTrigger>
-                    <DialogContent className="sm:max-w-md">
-                      <DialogHeader>
-                        <DialogTitle>Enter Part Dimensions</DialogTitle>
-                        <DialogDescription>
-                          Enter the dimensions of your part to calculate the volume.
-                        </DialogDescription>
-                      </DialogHeader>
-                      
-                      <div className="py-4">
-                        <DialogTabs defaultValue="rectangular">
-                          <DialogTabsList className="grid w-full grid-cols-2">
-                            <DialogTabsTrigger value="rectangular">Rectangular</DialogTabsTrigger>
-                            <DialogTabsTrigger value="cylindrical">Cylindrical</DialogTabsTrigger>
-                          </DialogTabsList>
-                          
-                          <DialogTabsContent value="rectangular" className="space-y-4 mt-4">
-                            <div>
-                              <Label htmlFor="length">Length ({isMetric ? "mm" : "in"}):</Label>
-                              <Input
-                                id="length"
-                                type="number"
-                                min="0"
-                                step="0.01"
-                                placeholder="0.00"
-                                value={length}
-                                onChange={(e) => setLength(e.target.value)}
-                              />
-                            </div>
-                            
-                            <div>
-                              <Label htmlFor="width">Width ({isMetric ? "mm" : "in"}):</Label>
-                              <Input
-                                id="width"
-                                type="number"
-                                min="0"
-                                step="0.01"
-                                placeholder="0.00"
-                                value={width}
-                                onChange={(e) => setWidth(e.target.value)}
-                              />
-                            </div>
-                            
-                            <div>
-                              <Label htmlFor="thickness">Thickness ({isMetric ? "mm" : "in"}):</Label>
-                              <Input
-                                id="thickness"
-                                type="number"
-                                min="0"
-                                step="0.01"
-                                placeholder="0.00"
-                                value={thickness}
-                                onChange={(e) => setThickness(e.target.value)}
-                              />
-                            </div>
-                          </DialogTabsContent>
-                          
-                          <DialogTabsContent value="cylindrical" className="space-y-4 mt-4">
-                            <div>
-                              <Label htmlFor="diameter">Diameter ({isMetric ? "mm" : "in"}):</Label>
-                              <Input
-                                id="diameter"
-                                type="number"
-                                min="0"
-                                step="0.01"
-                                placeholder="0.00"
-                                value={diameter}
-                                onChange={(e) => setDiameter(e.target.value)}
-                              />
-                            </div>
-                            
-                            <div>
-                              <Label htmlFor="cyl-length">Length ({isMetric ? "mm" : "in"}):</Label>
-                              <Input
-                                id="cyl-length"
-                                type="number"
-                                min="0"
-                                step="0.01"
-                                placeholder="0.00"
-                                value={length}
-                                onChange={(e) => setLength(e.target.value)}
-                              />
-                            </div>
-                          </DialogTabsContent>
-                        </DialogTabs>
-                      </div>
-                      
-                      <DialogFooter>
-                        <Button type="button" onClick={() => calculateVolume()}>
-                          Calculate Volume
-                        </Button>
-                      </DialogFooter>
-                    </DialogContent>
-                  </Dialog>
-                  
-                  <div>
-                    <Label htmlFor="material-volume">Material Volume ({isMetric ? "cm³" : "in³ → cm³"}):</Label>
-                    <Input
-                      id="material-volume"
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      placeholder="0.00"
-                      value={materialVolume}
-                      onChange={(e) => setMaterialVolume(e.target.value)}
-                    />
-                  </div>
-                  
-                  <div>
-                    <div className="flex items-center gap-2 mb-2">
-                      <Checkbox 
-                        id="compare-materials"
-                        checked={materialComparison}
-                        onCheckedChange={(checked) => setMaterialComparison(checked as boolean)}
-                      />
-                      <Label htmlFor="compare-materials" className="text-sm">Show material cost comparison</Label>
-                    </div>
-                  </div>
-                </div>
-                
-                <div className="space-y-4">
-                  <div>
-                    <Label htmlFor="material-cost">Material Cost per {isMetric ? "kg" : "lb"} ($):</Label>
-                    <Input
-                      id="material-cost"
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      placeholder="0.00"
-                      value={materialCostPerKg}
-                      onChange={(e) => setMaterialCostPerKg(e.target.value)}
-                    />
-                  </div>
-                  
-                  <div>
-                    <Label htmlFor="material-density">Material Density ({isMetric ? "g/cm³" : "lb/in³"}):</Label>
-                    <Input
-                      id="material-density"
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      placeholder="0.00"
-                      value={customDensity}
-                      onChange={(e) => setCustomDensity(e.target.value)}
-                    />
-                  </div>
-                  
-                  <ProcessesManager 
-                    processes={finishingProcesses} 
-                    onChange={handleFinishingChange} 
-                  />
-                </div>
-              </div>
-              
-              {renderMaterialComparison()}
+              <MaterialCalculator 
+                standalone={false}
+                externalQuantity={quantity}
+                onMaterialCostChange={(cost) => setMaterialCost(cost)}
+              />
             </TabsContent>
             
             <TabsContent value="time" className="mt-0">
