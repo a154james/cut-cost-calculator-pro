@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -38,6 +38,19 @@ const defaultMaterialDensities: MaterialDensity = {
   "plastic-pom": 1.41,
   "plastic-abs": 1.04,
   "plastic-nylon": 1.15
+};
+
+// SAE densities in lb/in³
+const saeMaterialDensities: MaterialDensity = {
+  "aluminum": 0.0975,
+  "steel": 0.284,
+  "stainless-steel": 0.289,
+  "brass": 0.307,
+  "copper": 0.324,
+  "titanium": 0.163,
+  "plastic-pom": 0.051,
+  "plastic-abs": 0.0376,
+  "plastic-nylon": 0.0416
 };
 
 const defaultMaterialCosts: MaterialCost = {
@@ -93,6 +106,17 @@ const MaterialCalculator = ({
   // Use external quantity if provided (for integration with main calculator)
   const effectiveQuantity = standalone ? quantity : (externalQuantity || "1");
 
+  // Get current density values based on unit system
+  const currentDensities = isMetric ? defaultMaterialDensities : saeMaterialDensities;
+
+  // Handle unit system changes
+  useEffect(() => {
+    const newDensity = currentDensities[selectedMaterial];
+    if (newDensity) {
+      setCustomDensity(newDensity.toString());
+    }
+  }, [isMetric, selectedMaterial, currentDensities]);
+
   const calculateVolume = () => {
     let volume = 0;
     
@@ -108,14 +132,16 @@ const MaterialCalculator = ({
     }
     
     if (!isMetric && volume > 0) {
+      // Convert from cubic inches to cubic cm
       volume *= 16.387064;
     }
     
     if (volume > 0) {
       setMaterialVolume(volume.toFixed(2));
+      const volumeUnit = isMetric ? "cm³" : "in³ (converted to cm³)";
       toast({
         title: "Volume Calculated",
-        description: `Material volume: ${volume.toFixed(2)} cm³`,
+        description: `Material volume: ${volume.toFixed(2)} ${volumeUnit}`,
       });
     } else {
       toast({
@@ -150,7 +176,18 @@ const MaterialCalculator = ({
     const costPerKg = parseFloat(materialCostPerKg);
     const quantityNum = parseInt(effectiveQuantity);
     
-    const weightKg = volumeCm3 * density / 1000;
+    // Calculate weight - density is in g/cm³ for metric, lb/in³ for SAE
+    let weightKg: number;
+    if (isMetric) {
+      // Metric: density in g/cm³, convert to kg
+      weightKg = volumeCm3 * density / 1000;
+    } else {
+      // SAE: density in lb/in³, volume in cm³, convert to kg
+      const volumeIn3 = volumeCm3 / 16.387064; // Convert cm³ to in³
+      const weightLbs = volumeIn3 * density; // Get weight in lbs
+      weightKg = weightLbs * 0.453592; // Convert lbs to kg
+    }
+    
     const totalMaterialCost = weightKg * costPerKg * quantityNum;
     
     setMaterialCost(totalMaterialCost.toFixed(2));
@@ -170,7 +207,7 @@ const MaterialCalculator = ({
     setSelectedMaterial(value);
     if (value in materialCosts) {
       setMaterialCostPerKg(materialCosts[value].toString());
-      setCustomDensity(materialDensities[value].toString());
+      setCustomDensity(currentDensities[value].toString());
     }
   };
 
@@ -213,8 +250,17 @@ const MaterialCalculator = ({
               </TableRow>
             </TableHeader>
             <TableBody>
-              {Object.entries(materialDensities).map(([material, density]) => {
-                const weightKg = volumeCm3 * density / 1000;
+              {Object.entries(currentDensities).map(([material, density]) => {
+                let weightKg: number;
+                if (isMetric) {
+                  // Metric: density in g/cm³
+                  weightKg = volumeCm3 * density / 1000;
+                } else {
+                  // SAE: density in lb/in³, convert to kg
+                  const volumeIn3 = volumeCm3 / 16.387064;
+                  const weightLbs = volumeIn3 * density;
+                  weightKg = weightLbs * 0.453592;
+                }
                 const costPerUnit = weightKg * materialCosts[material];
                 const totalCost = costPerUnit * parseInt(effectiveQuantity || "1");
                 
@@ -474,7 +520,7 @@ const MaterialCalculator = ({
           </div>
           
           <div>
-            <Label htmlFor="material-density">Material Density (g/cm³):</Label>
+            <Label htmlFor="material-density">Material Density ({isMetric ? "g/cm³" : "lb/in³"}):</Label>
             <Input
               id="material-density"
               type="number"
