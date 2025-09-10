@@ -507,7 +507,7 @@ const MaterialCalculator = ({
         
         <div className="space-y-4">
           <div>
-            <Label htmlFor="material-cost">Material Cost per kg ($):</Label>
+            <Label htmlFor="material-cost">Material Cost per {isMetric ? "kg" : "lb"} ($):</Label>
             <Input
               id="material-cost"
               type="number"
