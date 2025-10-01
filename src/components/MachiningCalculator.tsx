@@ -437,7 +437,7 @@ const MachiningCalculator = () => {
           </CardHeader>
           
           <CardContent className="pt-6">
-            <TabsContent value="machining" className="space-y-6 mt-0">
+            <TabsContent value="machining" className="space-y-6 mt-0" forceMount>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-4">
                   <div>
@@ -553,7 +553,7 @@ const MachiningCalculator = () => {
               </div>
             </TabsContent>
             
-            <TabsContent value="material" className="space-y-6 mt-0">
+            <TabsContent value="material" className="space-y-6 mt-0" forceMount>
               <MaterialCalculator 
                 standalone={false}
                 externalQuantity={quantity}
@@ -561,11 +561,11 @@ const MachiningCalculator = () => {
               />
             </TabsContent>
             
-            <TabsContent value="time" className="mt-0">
+            <TabsContent value="time" className="mt-0" forceMount>
               <TimeCalculator />
             </TabsContent>
             
-            <TabsContent value="advanced" className="mt-0">
+            <TabsContent value="advanced" className="mt-0" forceMount>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-4">
                   <div>

@@ -131,7 +131,10 @@ const MaterialCalculator = ({
       volume = lengthVal * widthVal * thicknessVal;
     }
     
-    if (!isMetric && volume > 0) {
+    if (isMetric && volume > 0) {
+      // Convert from cubic mm to cubic cm
+      volume /= 1000;
+    } else if (!isMetric && volume > 0) {
       // Convert from cubic inches to cubic cm
       volume *= 16.387064;
     }
