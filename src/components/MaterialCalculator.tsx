@@ -115,6 +115,22 @@ const MaterialCalculator = ({
     if (newDensity) {
       setCustomDensity(newDensity.toString());
     }
+    
+    // Convert volume when switching units
+    if (materialVolume && parseFloat(materialVolume) > 0) {
+      const currentVolume = parseFloat(materialVolume);
+      let convertedVolume: number;
+      
+      if (isMetric) {
+        // Converting from in³ to cm³
+        convertedVolume = currentVolume * 16.387064;
+      } else {
+        // Converting from cm³ to in³
+        convertedVolume = currentVolume / 16.387064;
+      }
+      
+      setMaterialVolume(convertedVolume.toFixed(2));
+    }
   }, [isMetric, selectedMaterial, currentDensities]);
 
   const calculateVolume = () => {
@@ -134,14 +150,12 @@ const MaterialCalculator = ({
     if (isMetric && volume > 0) {
       // Convert from cubic mm to cubic cm
       volume /= 1000;
-    } else if (!isMetric && volume > 0) {
-      // Convert from cubic inches to cubic cm
-      volume *= 16.387064;
     }
+    // If SAE mode, keep as cubic inches - no conversion needed
     
     if (volume > 0) {
       setMaterialVolume(volume.toFixed(2));
-      const volumeUnit = isMetric ? "cm³" : "in³ (converted to cm³)";
+      const volumeUnit = isMetric ? "cm³" : "in³";
       toast({
         title: "Volume Calculated",
         description: `Material volume: ${volume.toFixed(2)} ${volumeUnit}`,
@@ -174,7 +188,7 @@ const MaterialCalculator = ({
       return;
     }
 
-    const volumeCm3 = parseFloat(materialVolume);
+    const volume = parseFloat(materialVolume);
     const density = parseFloat(customDensity);
     const costPerKg = parseFloat(materialCostPerKg);
     const quantityNum = parseInt(effectiveQuantity);
@@ -182,12 +196,11 @@ const MaterialCalculator = ({
     // Calculate weight - density is in g/cm³ for metric, lb/in³ for SAE
     let weightKg: number;
     if (isMetric) {
-      // Metric: density in g/cm³, convert to kg
-      weightKg = volumeCm3 * density / 1000;
+      // Metric: volume in cm³, density in g/cm³, convert to kg
+      weightKg = volume * density / 1000;
     } else {
-      // SAE: density in lb/in³, volume in cm³, convert to kg
-      const volumeIn3 = volumeCm3 / 16.387064; // Convert cm³ to in³
-      const weightLbs = volumeIn3 * density; // Get weight in lbs
+      // SAE: volume in in³, density in lb/in³, convert to kg
+      const weightLbs = volume * density; // Get weight in lbs
       weightKg = weightLbs * 0.453592; // Convert lbs to kg
     }
     
@@ -234,8 +247,8 @@ const MaterialCalculator = ({
   const renderMaterialComparison = () => {
     if (!materialComparison) return null;
     
-    const volumeCm3 = parseFloat(materialVolume) || 0;
-    if (volumeCm3 <= 0) return null;
+    const volume = parseFloat(materialVolume) || 0;
+    if (volume <= 0) return null;
     
     return (
       <Card className="mt-4">
@@ -256,12 +269,11 @@ const MaterialCalculator = ({
               {Object.entries(currentDensities).map(([material, density]) => {
                 let weightKg: number;
                 if (isMetric) {
-                  // Metric: density in g/cm³
-                  weightKg = volumeCm3 * density / 1000;
+                  // Metric: volume in cm³, density in g/cm³
+                  weightKg = volume * density / 1000;
                 } else {
-                  // SAE: density in lb/in³, convert to kg
-                  const volumeIn3 = volumeCm3 / 16.387064;
-                  const weightLbs = volumeIn3 * density;
+                  // SAE: volume in in³, density in lb/in³, convert to kg
+                  const weightLbs = volume * density;
                   weightKg = weightLbs * 0.453592;
                 }
                 const costPerUnit = weightKg * materialCosts[material];
@@ -470,7 +482,7 @@ const MaterialCalculator = ({
           </Dialog>
           
           <div>
-            <Label htmlFor="material-volume">Material Volume ({isMetric ? "cm³" : "in³ → cm³"}):</Label>
+            <Label htmlFor="material-volume">Material Volume ({isMetric ? "cm³" : "in³"}):</Label>
             <Input
               id="material-volume"
               type="number"
