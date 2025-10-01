@@ -367,7 +367,7 @@ const MaterialCalculator = ({
                     }))}
                     className="flex-1"
                   />
-                  <span className="text-sm text-muted-foreground">$/kg</span>
+                  <span className="text-sm text-muted-foreground">{isMetric ? "$/kg" : "$/lb"}</span>
                 </div>
               ))}
             </div>
