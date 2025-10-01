@@ -78,15 +78,19 @@ const MaterialCalculator = ({
 }: MaterialCalculatorProps) => {
   const { toast } = useToast();
 
-  // Material costs state - can be edited via configuration dialog
-  const [materialCosts, setMaterialCosts] = useState<MaterialCost>(defaultMaterialCosts);
+  // Load material costs from localStorage or use defaults
+  const [materialCosts, setMaterialCosts] = useState<MaterialCost>(() => {
+    const saved = localStorage.getItem('materialCosts');
+    return saved ? JSON.parse(saved) : defaultMaterialCosts;
+  });
   const [materialDensities] = useState<MaterialDensity>(defaultMaterialDensities);
 
   const [selectedMaterial, setSelectedMaterial] = useState<string>("aluminum");
   const [materialVolume, setMaterialVolume] = useState<string>("");
-  const [materialCostPerKg, setMaterialCostPerKg] = useState<string>(
-    materialCosts[selectedMaterial].toString()
-  );
+  const [materialCostPerKg, setMaterialCostPerKg] = useState<string>(() => {
+    const costPerKg = materialCosts["aluminum"];
+    return costPerKg.toString();
+  });
   const [customDensity, setCustomDensity] = useState<string>("2.7");
   const [quantity, setQuantity] = useState<string>("1");
 
@@ -130,6 +134,20 @@ const MaterialCalculator = ({
       }
       
       setMaterialVolume(convertedVolume.toFixed(2));
+    }
+    
+    // Convert material cost when switching units
+    const currentCost = parseFloat(materialCostPerKg);
+    if (!isNaN(currentCost)) {
+      let convertedCost: number;
+      if (isMetric) {
+        // Converting from $/lb to $/kg
+        convertedCost = currentCost * 2.20462;
+      } else {
+        // Converting from $/kg to $/lb
+        convertedCost = currentCost / 2.20462;
+      }
+      setMaterialCostPerKg(convertedCost.toFixed(2));
     }
   }, [isMetric, selectedMaterial, currentDensities]);
 
@@ -190,21 +208,20 @@ const MaterialCalculator = ({
 
     const volume = parseFloat(materialVolume);
     const density = parseFloat(customDensity);
-    const costPerKg = parseFloat(materialCostPerKg);
+    const costPerUnit = parseFloat(materialCostPerKg);
     const quantityNum = parseInt(effectiveQuantity);
     
-    // Calculate weight - density is in g/cm³ for metric, lb/in³ for SAE
-    let weightKg: number;
+    // Calculate weight and cost based on unit system
+    let totalMaterialCost: number;
     if (isMetric) {
-      // Metric: volume in cm³, density in g/cm³, convert to kg
-      weightKg = volume * density / 1000;
+      // Metric: volume in cm³, density in g/cm³, cost per kg
+      const weightKg = volume * density / 1000;
+      totalMaterialCost = weightKg * costPerUnit * quantityNum;
     } else {
-      // SAE: volume in in³, density in lb/in³, convert to kg
-      const weightLbs = volume * density; // Get weight in lbs
-      weightKg = weightLbs * 0.453592; // Convert lbs to kg
+      // SAE: volume in in³, density in lb/in³, cost per lb
+      const weightLbs = volume * density;
+      totalMaterialCost = weightLbs * costPerUnit * quantityNum;
     }
-    
-    const totalMaterialCost = weightKg * costPerKg * quantityNum;
     
     setMaterialCost(totalMaterialCost.toFixed(2));
     
@@ -222,16 +239,23 @@ const MaterialCalculator = ({
   const handleMaterialChange = (value: string) => {
     setSelectedMaterial(value);
     if (value in materialCosts) {
-      setMaterialCostPerKg(materialCosts[value].toString());
+      const costPerKg = materialCosts[value];
+      // Convert to $/lb if in SAE mode
+      const displayCost = isMetric ? costPerKg : costPerKg / 2.20462;
+      setMaterialCostPerKg(displayCost.toFixed(2));
       setCustomDensity(currentDensities[value].toString());
     }
   };
 
   const saveMaterialCosts = () => {
     setMaterialCosts(tempMaterialCosts);
+    // Save to localStorage
+    localStorage.setItem('materialCosts', JSON.stringify(tempMaterialCosts));
     // Update current material cost if it's selected
     if (selectedMaterial in tempMaterialCosts) {
-      setMaterialCostPerKg(tempMaterialCosts[selectedMaterial].toString());
+      const costPerKg = tempMaterialCosts[selectedMaterial];
+      const displayCost = isMetric ? costPerKg : costPerKg / 2.20462;
+      setMaterialCostPerKg(displayCost.toFixed(2));
     }
     setConfigDialogOpen(false);
     toast({
@@ -260,29 +284,32 @@ const MaterialCalculator = ({
             <TableHeader>
               <TableRow>
                 <TableHead>Material</TableHead>
-                <TableHead>Weight (kg)</TableHead>
+                <TableHead>Weight</TableHead>
                 <TableHead>Cost per Unit</TableHead>
                 <TableHead>Total Cost</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {Object.entries(currentDensities).map(([material, density]) => {
-                let weightKg: number;
+                let weight: number;
+                let costPerUnit: number;
                 if (isMetric) {
                   // Metric: volume in cm³, density in g/cm³
-                  weightKg = volume * density / 1000;
+                  const weightKg = volume * density / 1000;
+                  weight = weightKg;
+                  costPerUnit = weightKg * materialCosts[material];
                 } else {
-                  // SAE: volume in in³, density in lb/in³, convert to kg
+                  // SAE: volume in in³, density in lb/in³
                   const weightLbs = volume * density;
-                  weightKg = weightLbs * 0.453592;
+                  weight = weightLbs;
+                  costPerUnit = weightLbs * (materialCosts[material] / 2.20462);
                 }
-                const costPerUnit = weightKg * materialCosts[material];
                 const totalCost = costPerUnit * parseInt(effectiveQuantity || "1");
                 
                 return (
                   <TableRow key={material} className={material === selectedMaterial ? "bg-muted/50" : ""}>
                     <TableCell className="font-medium">{material.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}</TableCell>
-                    <TableCell>{weightKg.toFixed(3)}</TableCell>
+                    <TableCell>{weight.toFixed(3)} {isMetric ? "kg" : "lb"}</TableCell>
                     <TableCell>${costPerUnit.toFixed(2)}</TableCell>
                     <TableCell>${totalCost.toFixed(2)}</TableCell>
                   </TableRow>
