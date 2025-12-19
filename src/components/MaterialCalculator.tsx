@@ -105,7 +105,14 @@ const MaterialCalculator = ({
 
   // Configuration dialog state
   const [configDialogOpen, setConfigDialogOpen] = useState(false);
-  const [tempMaterialCosts, setTempMaterialCosts] = useState<MaterialCost>(materialCosts);
+  const [tempMaterialCosts, setTempMaterialCosts] = useState<MaterialCost>(() => {
+    // Convert stored $/kg to display units
+    const displayCosts: MaterialCost = {};
+    Object.entries(materialCosts).forEach(([material, costPerKg]) => {
+      displayCosts[material] = isMetric ? costPerKg : costPerKg / 2.20462;
+    });
+    return displayCosts;
+  });
 
   // Use external quantity if provided (for integration with main calculator)
   const effectiveQuantity = standalone ? quantity : (externalQuantity || "1");
@@ -248,12 +255,17 @@ const MaterialCalculator = ({
   };
 
   const saveMaterialCosts = () => {
-    setMaterialCosts(tempMaterialCosts);
-    // Save to localStorage
-    localStorage.setItem('materialCosts', JSON.stringify(tempMaterialCosts));
+    // Convert display values back to $/kg for storage
+    const storageCosts: MaterialCost = {};
+    Object.entries(tempMaterialCosts).forEach(([material, displayCost]) => {
+      storageCosts[material] = isMetric ? displayCost : displayCost * 2.20462;
+    });
+    setMaterialCosts(storageCosts);
+    // Save to localStorage (always in $/kg)
+    localStorage.setItem('materialCosts', JSON.stringify(storageCosts));
     // Update current material cost if it's selected
-    if (selectedMaterial in tempMaterialCosts) {
-      const costPerKg = tempMaterialCosts[selectedMaterial];
+    if (selectedMaterial in storageCosts) {
+      const costPerKg = storageCosts[selectedMaterial];
       const displayCost = isMetric ? costPerKg : costPerKg / 2.20462;
       setMaterialCostPerKg(displayCost.toFixed(2));
     }
@@ -265,7 +277,24 @@ const MaterialCalculator = ({
   };
 
   const resetMaterialCosts = () => {
-    setTempMaterialCosts(defaultMaterialCosts);
+    // Convert default costs to display units
+    const displayCosts: MaterialCost = {};
+    Object.entries(defaultMaterialCosts).forEach(([material, costPerKg]) => {
+      displayCosts[material] = isMetric ? costPerKg : costPerKg / 2.20462;
+    });
+    setTempMaterialCosts(displayCosts);
+  };
+
+  // Update tempMaterialCosts when dialog opens or unit system changes while open
+  const handleConfigDialogOpen = (open: boolean) => {
+    if (open) {
+      const displayCosts: MaterialCost = {};
+      Object.entries(materialCosts).forEach(([material, costPerKg]) => {
+        displayCosts[material] = isMetric ? costPerKg : costPerKg / 2.20462;
+      });
+      setTempMaterialCosts(displayCosts);
+    }
+    setConfigDialogOpen(open);
   };
 
   const renderMaterialComparison = () => {
@@ -335,7 +364,7 @@ const MaterialCalculator = ({
           <Label htmlFor="unit-system" className="text-sm font-medium">Metric</Label>
         </div>
         
-        <Dialog open={configDialogOpen} onOpenChange={setConfigDialogOpen}>
+        <Dialog open={configDialogOpen} onOpenChange={handleConfigDialogOpen}>
           <DialogTrigger asChild>
             <Button variant="outline" size="sm">
               <Settings className="mr-2 h-4 w-4" />
