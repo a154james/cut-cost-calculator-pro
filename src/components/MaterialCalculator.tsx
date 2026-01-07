@@ -394,10 +394,10 @@ const MaterialCalculator = ({
                     type="number"
                     min="0"
                     step="0.01"
-                    value={cost}
+                    value={parseFloat(cost.toFixed(2))}
                     onChange={(e) => setTempMaterialCosts(prev => ({
                       ...prev,
-                      [material]: parseFloat(e.target.value) || 0
+                      [material]: parseFloat(parseFloat(e.target.value).toFixed(2)) || 0
                     }))}
                     className="flex-1"
                   />
