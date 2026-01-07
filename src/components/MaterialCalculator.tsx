@@ -102,6 +102,8 @@ const MaterialCalculator = ({
   const [isMetric, setIsMetric] = useState<boolean>(false);
   const [materialComparison, setMaterialComparison] = useState<boolean>(false);
   const [materialCost, setMaterialCost] = useState<string>("0");
+  const [weightPerPiece, setWeightPerPiece] = useState<number>(0);
+  const [totalWeight, setTotalWeight] = useState<number>(0);
 
   // Configuration dialog state
   const [configDialogOpen, setConfigDialogOpen] = useState(false);
@@ -220,16 +222,19 @@ const MaterialCalculator = ({
     
     // Calculate weight and cost based on unit system
     let totalMaterialCost: number;
+    let pieceWeight: number;
     if (isMetric) {
       // Metric: volume in cm³, density in g/cm³, cost per kg
-      const weightKg = volume * density / 1000;
-      totalMaterialCost = weightKg * costPerUnit * quantityNum;
+      pieceWeight = volume * density / 1000; // kg
+      totalMaterialCost = pieceWeight * costPerUnit * quantityNum;
     } else {
       // SAE: volume in in³, density in lb/in³, cost per lb
-      const weightLbs = volume * density;
-      totalMaterialCost = weightLbs * costPerUnit * quantityNum;
+      pieceWeight = volume * density; // lb
+      totalMaterialCost = pieceWeight * costPerUnit * quantityNum;
     }
     
+    setWeightPerPiece(pieceWeight);
+    setTotalWeight(pieceWeight * quantityNum);
     setMaterialCost(totalMaterialCost.toFixed(2));
     
     // Notify parent component if callback is provided
@@ -616,6 +621,22 @@ const MaterialCalculator = ({
               <p className="text-sm text-muted-foreground">
                 For {effectiveQuantity} piece{parseInt(effectiveQuantity) !== 1 ? 's' : ''}
               </p>
+            </div>
+          )}
+          
+          {weightPerPiece > 0 && (
+            <div className="mt-4 p-4 bg-muted/50 rounded-lg">
+              <Label className="text-sm font-medium">Calculated Weight:</Label>
+              <div className="grid grid-cols-2 gap-4 mt-2">
+                <div>
+                  <p className="text-xs text-muted-foreground">Per Piece</p>
+                  <p className="text-lg font-semibold">{weightPerPiece.toFixed(3)} {isMetric ? "kg" : "lb"}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Total ({effectiveQuantity} pcs)</p>
+                  <p className="text-lg font-semibold">{totalWeight.toFixed(3)} {isMetric ? "kg" : "lb"}</p>
+                </div>
+              </div>
             </div>
           )}
         </div>
