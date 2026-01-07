@@ -1,4 +1,3 @@
-
 import React from "react";
 
 interface AdSensePanelProps {
@@ -9,8 +8,8 @@ interface AdSensePanelProps {
 }
 
 const AdSensePanel = ({ 
-  adClient = "ca-pub-xxxxxxxxxxxxxxxx", 
-  adSlot = "1234567890",
+  adClient = import.meta.env.VITE_ADSENSE_CLIENT || "ca-pub-xxxxxxxxxxxxxxxx", 
+  adSlot = import.meta.env.VITE_ADSENSE_SLOT || "1234567890",
   adFormat = "auto",
   className = ""
 }: AdSensePanelProps) => {
