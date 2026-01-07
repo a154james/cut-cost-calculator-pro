@@ -384,7 +384,7 @@ const MaterialCalculator = ({
               </DialogDescription>
             </DialogHeader>
             
-            <div className="space-y-4 max-h-96 overflow-y-auto">
+            <div className="space-y-4 max-h-96 overflow-y-auto pr-4">
               {Object.entries(tempMaterialCosts).map(([material, cost]) => (
                 <div key={material} className="flex items-center space-x-2">
                   <Label className="min-w-[120px] text-sm">
