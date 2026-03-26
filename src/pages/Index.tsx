@@ -7,7 +7,7 @@ import CookieConsentPopup from "@/components/CookieConsentPopup";
 
 const Index = () => {
   return (
-    <div className="min-h-screen flex flex-col bg-gray-100">
+    <div className="min-h-screen flex flex-col bg-muted">
       <Header />
       <main className="flex-grow container mx-auto px-4 py-6">
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
