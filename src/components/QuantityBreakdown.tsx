@@ -86,6 +86,7 @@ const QuantityBreakdown = ({
               <TableRow>
                 <TableHead className="text-right">Qty</TableHead>
                 <TableHead className="text-right">Setup/Prog per pc</TableHead>
+                <TableHead className="text-right">Material per pc</TableHead>
                 <TableHead className="text-right">Variable per pc</TableHead>
                 <TableHead className="text-right">Cost/Piece</TableHead>
                 <TableHead className="text-right">Total Cost</TableHead>
@@ -100,6 +101,7 @@ const QuantityBreakdown = ({
                 >
                   <TableCell className="text-right">{row.qty}</TableCell>
                   <TableCell className="text-right">${row.fixedCpp.toFixed(2)}</TableCell>
+                  <TableCell className="text-right">${row.materialCpp.toFixed(2)}</TableCell>
                   <TableCell className="text-right">${row.variableCpp.toFixed(2)}</TableCell>
                   <TableCell className="text-right">${row.totalCpp.toFixed(2)}</TableCell>
                   <TableCell className="text-right">${row.totalLot.toFixed(2)}</TableCell>
