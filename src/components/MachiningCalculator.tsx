@@ -67,6 +67,7 @@ const MachiningCalculator = () => {
   const [addMarkup, setAddMarkup] = useState<boolean>(false);
   const [markupPercentage, setMarkupPercentage] = useState<string>("20");
   const [includeProgramming, setIncludeProgramming] = useState<boolean>(true);
+  const [manualMaterialEntry, setManualMaterialEntry] = useState<boolean>(false);
 
   const calculateOptimalBatchSizes = () => {
     const qtyNum = parseInt(quantity);
@@ -555,11 +556,49 @@ const MachiningCalculator = () => {
             </TabsContent>
             
             <TabsContent value="material" className="space-y-6 mt-0" forceMount>
-              <MaterialCalculator 
-                standalone={false}
-                externalQuantity={quantity}
-                onMaterialCostChange={(cost) => setMaterialCost(cost)}
-              />
+              <div className="flex items-center space-x-2 mb-4">
+                <Label htmlFor="manual-material" className="text-sm font-medium">Manual Entry</Label>
+                <Switch 
+                  id="manual-material" 
+                  checked={!manualMaterialEntry}
+                  onCheckedChange={(checked) => setManualMaterialEntry(!checked)}
+                />
+                <Label htmlFor="manual-material" className="text-sm font-medium">Calculator</Label>
+              </div>
+              
+              {manualMaterialEntry ? (
+                <div className="space-y-4 max-w-md">
+                  <div>
+                    <Label htmlFor="manual-material-cost">Total Material Cost ($):</Label>
+                    <Input
+                      id="manual-material-cost"
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      placeholder="0.00"
+                      value={materialCost === "0" ? "" : materialCost}
+                      onChange={(e) => setMaterialCost(e.target.value || "0")}
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Enter the total material cost for {quantity} piece{parseInt(quantity) !== 1 ? 's' : ''}
+                    </p>
+                  </div>
+                  {parseFloat(materialCost) > 0 && parseInt(quantity) > 0 && (
+                    <div className="p-4 bg-muted/50 rounded-lg">
+                      <p className="text-sm text-muted-foreground">Cost per piece</p>
+                      <p className="text-xl font-bold text-primary">
+                        ${(parseFloat(materialCost) / parseInt(quantity)).toFixed(2)}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <MaterialCalculator 
+                  standalone={false}
+                  externalQuantity={quantity}
+                  onMaterialCostChange={(cost) => setMaterialCost(cost)}
+                />
+              )}
             </TabsContent>
             
             <TabsContent value="time" className="mt-0" forceMount>
