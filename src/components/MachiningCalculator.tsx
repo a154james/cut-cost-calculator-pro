@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Calculator, Box, FileText, Printer, Clock } from "lucide-react";
+import { Calculator, Box, FileText, Printer, Clock, TrendingDown } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import ResultCard from "./ResultCard";
 import TimeInput from "./TimeInput";
@@ -14,6 +14,7 @@ import { Switch } from "@/components/ui/switch";
 import ProcessesManager, { ProcessOption } from "./ProcessesManager";
 import TimeCalculator from "./TimeCalculator";
 import MaterialCalculator from "./MaterialCalculator";
+import QuantityBreakdown from "./QuantityBreakdown";
 import {
   Dialog,
   DialogContent,
@@ -677,6 +678,22 @@ const MachiningCalculator = () => {
                   </PopoverContent>
                 </Popover>
               </div>
+
+              <QuantityBreakdown
+                machineTimePerPiece={calculateTotalTime(machineTimeHours, machineTimeMinutes)}
+                machineHourlyCost={parseFloat(machineHourlyCost) || 0}
+                setupTimeTotal={calculateTotalTime(setupTimeHours, setupTimeMinutes) * (parseInt(setupCount) || 1)}
+                setupHourlyCost={parseFloat(setupHourlyCost) || 0}
+                programmingTimeTotal={calculateTotalTime(programmingTimeHours, programmingTimeMinutes)}
+                programmingHourlyCost={parseFloat(programmingHourlyCost) || 0}
+                includeProgramming={includeProgramming}
+                finishingCostPerPiece={finishingProcesses.filter(p => p.selected && p.id !== "none").reduce((t, p) => t + p.cost, 0)}
+                materialCostPerPiece={(parseFloat(materialCost) || 0) / (parseInt(quantity) || 1)}
+                toolCost={parseFloat(toolCost) || 0}
+                addMarkup={addMarkup}
+                markupPercentage={parseFloat(markupPercentage) || 0}
+                currentQuantity={parseInt(quantity) || 1}
+              />
             </div>
           </CardContent>
         </Card>
