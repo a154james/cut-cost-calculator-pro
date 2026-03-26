@@ -46,14 +46,16 @@ const QuantityBreakdown = ({
     return quantities.map((qty) => {
       const machineCpp = machineTimePerPiece * machineHourlyCost;
       const fixedCpp = fixedCosts / qty;
-      const variableCpp = machineCpp + finishingCostPerPiece + materialCostPerPiece;
-      const totalCpp = (fixedCpp + variableCpp) * markupMult;
+      const materialCpp = materialCostPerPiece * (currentQuantity / qty > 0 ? 1 : 0);
+      const variableCpp = machineCpp + finishingCostPerPiece;
+      const totalCpp = (fixedCpp + variableCpp + materialCpp) * markupMult;
       const totalLot = totalCpp * qty;
 
       return {
         qty,
-        setupProgramPct: totalCpp > 0 ? (fixedCpp / (fixedCpp + variableCpp)) * 100 : 0,
+        setupProgramPct: totalCpp > 0 ? (fixedCpp / (fixedCpp + variableCpp + materialCpp)) * 100 : 0,
         fixedCpp,
+        materialCpp,
         variableCpp,
         totalCpp,
         totalLot,
@@ -86,6 +88,7 @@ const QuantityBreakdown = ({
               <TableRow>
                 <TableHead className="text-right">Qty</TableHead>
                 <TableHead className="text-right">Setup/Prog per pc</TableHead>
+                <TableHead className="text-right">Material per pc</TableHead>
                 <TableHead className="text-right">Variable per pc</TableHead>
                 <TableHead className="text-right">Cost/Piece</TableHead>
                 <TableHead className="text-right">Total Cost</TableHead>
@@ -100,6 +103,7 @@ const QuantityBreakdown = ({
                 >
                   <TableCell className="text-right">{row.qty}</TableCell>
                   <TableCell className="text-right">${row.fixedCpp.toFixed(2)}</TableCell>
+                  <TableCell className="text-right">${row.materialCpp.toFixed(2)}</TableCell>
                   <TableCell className="text-right">${row.variableCpp.toFixed(2)}</TableCell>
                   <TableCell className="text-right">${row.totalCpp.toFixed(2)}</TableCell>
                   <TableCell className="text-right">${row.totalLot.toFixed(2)}</TableCell>
