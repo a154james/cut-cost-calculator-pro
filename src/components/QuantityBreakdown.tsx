@@ -46,14 +46,16 @@ const QuantityBreakdown = ({
     return quantities.map((qty) => {
       const machineCpp = machineTimePerPiece * machineHourlyCost;
       const fixedCpp = fixedCosts / qty;
-      const variableCpp = machineCpp + finishingCostPerPiece + materialCostPerPiece;
-      const totalCpp = (fixedCpp + variableCpp) * markupMult;
+      const materialCpp = materialCostPerPiece * (currentQuantity / qty > 0 ? 1 : 0);
+      const variableCpp = machineCpp + finishingCostPerPiece;
+      const totalCpp = (fixedCpp + variableCpp + materialCpp) * markupMult;
       const totalLot = totalCpp * qty;
 
       return {
         qty,
-        setupProgramPct: totalCpp > 0 ? (fixedCpp / (fixedCpp + variableCpp)) * 100 : 0,
+        setupProgramPct: totalCpp > 0 ? (fixedCpp / (fixedCpp + variableCpp + materialCpp)) * 100 : 0,
         fixedCpp,
+        materialCpp,
         variableCpp,
         totalCpp,
         totalLot,
