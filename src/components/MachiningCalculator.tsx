@@ -5,8 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Calculator, Box, FileText, Printer, Clock, TrendingDown } from "lucide-react";
+import { Calculator, FileText, Printer } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import ResultCard from "./ResultCard";
 import TimeInput from "./TimeInput";
@@ -15,17 +14,8 @@ import ProcessesManager, { ProcessOption } from "./ProcessesManager";
 import TimeCalculator from "./TimeCalculator";
 import MaterialCalculator from "./MaterialCalculator";
 import QuantityBreakdown from "./QuantityBreakdown";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import { Tabs as DialogTabs, TabsContent as DialogTabsContent, TabsList as DialogTabsList, TabsTrigger as DialogTabsTrigger } from "@/components/ui/tabs";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import OperationsManager, { Operation, createDefaultOperation } from "./OperationsManager";
+import ShopRateCalculator from "./ShopRateCalculator";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
@@ -43,15 +33,10 @@ const initialFinishingProcesses: ProcessOption[] = [
 const MachiningCalculator = () => {
   const { toast } = useToast();
 
-  const [machineTimeHours, setMachineTimeHours] = useState<string>("");
-  const [machineTimeMinutes, setMachineTimeMinutes] = useState<string>("");
-  const [setupTimeHours, setSetupTimeHours] = useState<string>("");
-  const [setupTimeMinutes, setSetupTimeMinutes] = useState<string>("");
+  const [operations, setOperations] = useState<Operation[]>([createDefaultOperation(1)]);
+
   const [programmingTimeHours, setProgrammingTimeHours] = useState<string>("");
   const [programmingTimeMinutes, setProgrammingTimeMinutes] = useState<string>("");
-
-  const [machineHourlyCost, setMachineHourlyCost] = useState<string>("");
-  const [setupHourlyCost, setSetupHourlyCost] = useState<string>("");
   const [programmingHourlyCost, setProgrammingHourlyCost] = useState<string>("");
   const [quantity, setQuantity] = useState<string>("1");
 
@@ -68,6 +53,61 @@ const MachiningCalculator = () => {
   const [markupPercentage, setMarkupPercentage] = useState<string>("20");
   const [includeProgramming, setIncludeProgramming] = useState<boolean>(true);
   const [manualMaterialEntry, setManualMaterialEntry] = useState<boolean>(false);
+
+  const calculateTotalTime = (hours: string, minutes: string): number => {
+    const hoursNum = parseFloat(hours) || 0;
+    const minutesNum = parseFloat(minutes) || 0;
+    return hoursNum + minutesNum / 60;
+  };
+
+  const getAggregatedValues = () => {
+    let totalMachineTimePerPiece = 0;
+    let totalMachineCostPerPiece = 0;
+    let totalSetupTime = 0;
+    let totalSetupCost = 0;
+
+    const setupCountNum = parseInt(setupCount || "1");
+
+    for (const op of operations) {
+      const machineTime = calculateTotalTime(op.machineTimeHours, op.machineTimeMinutes);
+      const setupTime = calculateTotalTime(op.setupTimeHours, op.setupTimeMinutes);
+      const machineRate = parseFloat(op.machineHourlyCost) || 0;
+      const setupRate = parseFloat(op.setupHourlyCost) || 0;
+
+      totalMachineTimePerPiece += machineTime;
+      totalMachineCostPerPiece += machineTime * machineRate;
+      totalSetupTime += setupTime * setupCountNum;
+      totalSetupCost += setupTime * setupCountNum * setupRate;
+    }
+
+    return { totalMachineTimePerPiece, totalMachineCostPerPiece, totalSetupTime, totalSetupCost };
+  };
+
+  // For QuantityBreakdown we need a weighted average hourly cost
+  const getWeightedMachineRate = () => {
+    let totalTime = 0;
+    let totalCost = 0;
+    for (const op of operations) {
+      const t = calculateTotalTime(op.machineTimeHours, op.machineTimeMinutes);
+      const r = parseFloat(op.machineHourlyCost) || 0;
+      totalTime += t;
+      totalCost += t * r;
+    }
+    return totalTime > 0 ? totalCost / totalTime : 0;
+  };
+
+  const getWeightedSetupRate = () => {
+    let totalTime = 0;
+    let totalCost = 0;
+    const setupCountNum = parseInt(setupCount || "1");
+    for (const op of operations) {
+      const t = calculateTotalTime(op.setupTimeHours, op.setupTimeMinutes) * setupCountNum;
+      const r = parseFloat(op.setupHourlyCost) || 0;
+      totalTime += t;
+      totalCost += t * r;
+    }
+    return totalTime > 0 ? totalCost / totalTime : 0;
+  };
 
   const calculateOptimalBatchSizes = () => {
     const qtyNum = parseInt(quantity);
@@ -90,16 +130,11 @@ const MachiningCalculator = () => {
     return sizes;
   };
 
-  const calculateTotalTime = (hours: string, minutes: string): number => {
-    const hoursNum = parseFloat(hours) || 0;
-    const minutesNum = parseFloat(minutes) || 0;
-    return hoursNum + minutesNum / 60;
-  };
-
   const calculateCosts = () => {
+    const hasRates = operations.some(op => parseFloat(op.machineHourlyCost) > 0 || parseFloat(op.setupHourlyCost) > 0);
+    
     if (
-      !machineHourlyCost || 
-      !setupHourlyCost || 
+      !hasRates ||
       (includeProgramming && !programmingHourlyCost) || 
       !quantity ||
       (parseFloat(quantity) <= 0)
@@ -113,23 +148,15 @@ const MachiningCalculator = () => {
     }
 
     const quantityNum = parseInt(quantity);
-    const setupCountNum = parseInt(setupCount || "1");
-    
-    // Machine time is per piece, multiply by quantity
-    const machineTimePerPiece = calculateTotalTime(machineTimeHours, machineTimeMinutes);
-    const totalMachineTimeValue = machineTimePerPiece * quantityNum;
-    
-    // Setup time is per setup, multiply by setup count
-    const setupTimePerSetup = calculateTotalTime(setupTimeHours, setupTimeMinutes);
-    const totalSetupTimeValue = setupTimePerSetup * setupCountNum;
+    const { totalMachineTimePerPiece, totalMachineCostPerPiece, totalSetupCost } = getAggregatedValues();
+
+    const totalMachineTimeValue = totalMachineTimePerPiece * quantityNum;
     
     const totalProgrammingTimeValue = includeProgramming ? calculateTotalTime(programmingTimeHours, programmingTimeMinutes) : 0;
 
-    const machineCost = totalMachineTimeValue * parseFloat(machineHourlyCost);
-    const setupCostValue = totalSetupTimeValue * parseFloat(setupHourlyCost);
+    const machineCost = totalMachineCostPerPiece * quantityNum;
     const programmingCostValue = includeProgramming ? totalProgrammingTimeValue * parseFloat(programmingHourlyCost) : 0;
     
-    // Material cost comes from the MaterialCalculator component
     const materialCostValue = parseFloat(materialCost) || 0;
 
     const selectedProcesses = finishingProcesses.filter(p => p.selected && p.id !== "none");
@@ -139,7 +166,7 @@ const MachiningCalculator = () => {
     const toolCostValue = parseFloat(toolCost) || 0;
     const toolCostPerPiece = toolCostValue / quantityNum;
 
-    const fixedCostsPerPiece = (setupCostValue + programmingCostValue) / quantityNum;
+    const fixedCostsPerPiece = (totalSetupCost + programmingCostValue) / quantityNum;
     const variableCostsPerPiece = (machineCost / quantityNum) + finishingCostPerPiece + toolCostPerPiece;
     const materialCostPerPiece = materialCostValue / quantityNum;
     
@@ -179,15 +206,9 @@ const MachiningCalculator = () => {
   };
 
   const resetForm = () => {
-    setMachineTimeHours("");
-    setMachineTimeMinutes("");
-    setSetupTimeHours("");
-    setSetupTimeMinutes("");
+    setOperations([createDefaultOperation(1)]);
     setProgrammingTimeHours("");
     setProgrammingTimeMinutes("");
-
-    setMachineHourlyCost("");
-    setSetupHourlyCost("");
     setProgrammingHourlyCost("");
     setQuantity("1");
     
@@ -210,6 +231,12 @@ const MachiningCalculator = () => {
     });
   };
 
+  const applyShopRate = (operationId: string, rate: number) => {
+    setOperations(ops => ops.map(op => 
+      op.id === operationId ? { ...op, machineHourlyCost: rate.toString() } : op
+    ));
+  };
+
   const printQuote = () => {
     const printWindow = window.open('', '_blank');
     
@@ -226,6 +253,14 @@ const MachiningCalculator = () => {
     const selectedFinishingText = selectedProcesses.length > 0 
       ? selectedProcesses.map(p => p.name).join(", ") 
       : "None";
+
+    const operationsHtml = operations.map(op => {
+      const machineTime = calculateTotalTime(op.machineTimeHours, op.machineTimeMinutes);
+      const setupTime = calculateTotalTime(op.setupTimeHours, op.setupTimeMinutes);
+      return `
+        <tr><td>${op.name}</td><td>${machineTime.toFixed(2)} hr/pc</td><td>${setupTime.toFixed(2)} hr</td><td>$${op.machineHourlyCost || '0'}/hr</td><td>$${op.setupHourlyCost || '0'}/hr</td></tr>
+      `;
+    }).join('');
     
     printWindow.document.write(`
       <html>
@@ -233,132 +268,23 @@ const MachiningCalculator = () => {
           <title>CNC Machining Quote</title>
           <style>
             * { box-sizing: border-box; }
-            body { 
-              font-family: 'Georgia', 'Times New Roman', serif; 
-              margin: 0; 
-              padding: 40px;
-              background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
-              color: #1e293b;
-              line-height: 1.6;
-            }
-            .container {
-              max-width: 800px;
-              margin: 0 auto;
-              background: white;
-              padding: 40px;
-              border-radius: 12px;
-              box-shadow: 0 20px 40px rgba(0,0,0,0.1);
-            }
-            h1 { 
-              color: #0f172a; 
-              font-size: 2.5rem;
-              font-weight: 700;
-              margin: 0 0 8px 0;
-              text-align: center;
-              border-bottom: 3px solid #3b82f6;
-              padding-bottom: 16px;
-            }
-            h2 { 
-              color: #334155; 
-              font-size: 1.4rem;
-              font-weight: 600;
-              margin: 32px 0 16px 0;
-              padding: 12px 0;
-              border-bottom: 1px solid #e2e8f0;
-            }
-            .quote-header { 
-              text-align: center;
-              margin-bottom: 40px;
-              padding: 24px;
-              background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
-              border-radius: 8px;
-              border-left: 4px solid #3b82f6;
-            }
-            .quote-header p {
-              margin: 4px 0;
-              font-size: 1.1rem;
-              color: #475569;
-            }
-            .quote-section { 
-              margin-bottom: 32px;
-              padding: 20px;
-              border-radius: 8px;
-              background: #fafafa;
-            }
-            table { 
-              width: 100%; 
-              border-collapse: separate;
-              border-spacing: 0;
-              margin-bottom: 24px;
-              border-radius: 8px;
-              overflow: hidden;
-              box-shadow: 0 4px 6px rgba(0,0,0,0.05);
-            }
-            th, td { 
-              padding: 16px 20px; 
-              text-align: left;
-              border-bottom: 1px solid #e2e8f0;
-            }
-            th { 
-              background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
-              color: white;
-              font-weight: 600;
-              font-size: 0.95rem;
-              text-transform: uppercase;
-              letter-spacing: 0.5px;
-            }
-            td {
-              background: white;
-              font-size: 1rem;
-            }
-            tr:hover td {
-              background: #f8fafc;
-            }
-            .total { 
-              font-weight: 700;
-              color: #0f172a;
-              background: #f1f5f9 !important;
-              font-size: 1.1rem;
-            }
-            .footer { 
-              margin-top: 60px; 
-              padding: 24px;
-              font-size: 0.9rem; 
-              color: #64748b;
-              text-align: center;
-              border-top: 2px solid #e2e8f0;
-              background: #f8fafc;
-              border-radius: 8px;
-            }
-            .footer p {
-              margin: 8px 0;
-            }
-            .highlight {
-              background: #fef3c7;
-              padding: 2px 6px;
-              border-radius: 4px;
-              font-weight: 600;
-            }
-            @media print {
-              body { 
-                margin: 0; 
-                padding: 20px;
-                background: white;
-              }
-              .container {
-                box-shadow: none;
-                border-radius: 0;
-              }
-              button { display: none; }
-              .quote-header, .quote-section {
-                background: white !important;
-              }
-              th {
-                background: #3b82f6 !important;
-                -webkit-print-color-adjust: exact;
-                color-adjust: exact;
-              }
-            }
+            body { font-family: 'Georgia', 'Times New Roman', serif; margin: 0; padding: 40px; background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%); color: #1e293b; line-height: 1.6; }
+            .container { max-width: 800px; margin: 0 auto; background: white; padding: 40px; border-radius: 12px; box-shadow: 0 20px 40px rgba(0,0,0,0.1); }
+            h1 { color: #0f172a; font-size: 2.5rem; font-weight: 700; margin: 0 0 8px 0; text-align: center; border-bottom: 3px solid #3b82f6; padding-bottom: 16px; }
+            h2 { color: #334155; font-size: 1.4rem; font-weight: 600; margin: 32px 0 16px 0; padding: 12px 0; border-bottom: 1px solid #e2e8f0; }
+            .quote-header { text-align: center; margin-bottom: 40px; padding: 24px; background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%); border-radius: 8px; border-left: 4px solid #3b82f6; }
+            .quote-header p { margin: 4px 0; font-size: 1.1rem; color: #475569; }
+            .quote-section { margin-bottom: 32px; padding: 20px; border-radius: 8px; background: #fafafa; }
+            table { width: 100%; border-collapse: separate; border-spacing: 0; margin-bottom: 24px; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
+            th, td { padding: 16px 20px; text-align: left; border-bottom: 1px solid #e2e8f0; }
+            th { background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); color: white; font-weight: 600; font-size: 0.95rem; text-transform: uppercase; letter-spacing: 0.5px; }
+            td { background: white; font-size: 1rem; }
+            tr:hover td { background: #f8fafc; }
+            .total { font-weight: 700; color: #0f172a; background: #f1f5f9 !important; font-size: 1.1rem; }
+            .footer { margin-top: 60px; padding: 24px; font-size: 0.9rem; color: #64748b; text-align: center; border-top: 2px solid #e2e8f0; background: #f8fafc; border-radius: 8px; }
+            .footer p { margin: 8px 0; }
+            .highlight { background: #fef3c7; padding: 2px 6px; border-radius: 4px; font-weight: 600; }
+            @media print { body { margin: 0; padding: 20px; background: white; } .container { box-shadow: none; border-radius: 0; } button { display: none; } .quote-header, .quote-section { background: white !important; } th { background: #3b82f6 !important; -webkit-print-color-adjust: exact; color-adjust: exact; } }
           </style>
         </head>
         <body>
@@ -373,16 +299,23 @@ const MachiningCalculator = () => {
               <h2>📋 Job Details</h2>
               <table>
                 <tr><th>Quantity</th><td>${quantity} pieces</td></tr>
-                <tr><th>Material</th><td>See Material Calculator</td></tr>
                 <tr><th>Finishing</th><td>${selectedFinishingText}</td></tr>
                 <tr><th>Setup Count</th><td>${setupCount}</td></tr>
+              </table>
+            </div>
+
+            <div class="quote-section">
+              <h2>🔧 Operations</h2>
+              <table>
+                <tr><th>Operation</th><th>Machine Time</th><th>Setup Time</th><th>Machine Rate</th><th>Setup Rate</th></tr>
+                ${operationsHtml}
               </table>
             </div>
             
             <div class="quote-section">
               <h2>💰 Cost Breakdown</h2>
               <table>
-                <tr><th>Machine Time</th><td>${totalMachineTime} hours</td></tr>
+                <tr><th>Total Machine Time</th><td>${totalMachineTime} hours</td></tr>
                 <tr><th>Material Cost</th><td>$${materialCost}</td></tr>
                 <tr><th>Cost Per Piece</th><td>$${costPerPiece}</td></tr>
                 <tr class="total"><th>Total Lot Cost</th><td><strong>$${totalLotCost}</strong></td></tr>
@@ -393,7 +326,7 @@ const MachiningCalculator = () => {
               <h2>📦 Batch Information</h2>
               <table>
                 <tr><th colspan="2">Batch Distribution</th></tr>
-                ${batchSizes.map((batch, index) => `<tr><td colspan="2">${batch}</td></tr>`).join('')}
+                ${batchSizes.map((batch) => `<tr><td colspan="2">${batch}</td></tr>`).join('')}
               </table>
             </div>
             
@@ -420,6 +353,11 @@ const MachiningCalculator = () => {
     });
   };
 
+  const { totalMachineTimePerPiece } = getAggregatedValues();
+  const aggSetupTimeTotal = operations.reduce((s, op) => 
+    s + calculateTotalTime(op.setupTimeHours, op.setupTimeMinutes) * (parseInt(setupCount) || 1), 0
+  );
+
   return (
     <div className="max-w-4xl mx-auto">
       <Tabs defaultValue="machining" className="w-full">
@@ -440,115 +378,83 @@ const MachiningCalculator = () => {
           
           <CardContent className="pt-6">
             <TabsContent value="machining" className="space-y-6 mt-0" forceMount>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-4">
-                  <div>
-                    <Label htmlFor="machine-time" className="flex items-center">
-                      Machine Time <span className="text-xs ml-2 text-muted-foreground">(per piece)</span>:
-                    </Label>
-                    <TimeInput
-                      hoursValue={machineTimeHours}
-                      minutesValue={machineTimeMinutes}
-                      onHoursChange={(e) => setMachineTimeHours(e.target.value)}
-                      onMinutesChange={(e) => setMachineTimeMinutes(e.target.value)}
-                    />
-                  </div>
-                  
-                  <div>
-                    <Label htmlFor="setup-time" className="flex items-center">
-                      Setup Time <span className="text-xs ml-2 text-muted-foreground">(per setup)</span>:
-                    </Label>
-                    <TimeInput
-                      hoursValue={setupTimeHours}
-                      minutesValue={setupTimeMinutes}
-                      onHoursChange={(e) => setSetupTimeHours(e.target.value)}
-                      onMinutesChange={(e) => setSetupTimeMinutes(e.target.value)}
-                    />
-                  </div>
-                  
-                  <div>
-                    <Label htmlFor="programming-time">Programming Time:</Label>
-                    <div className="flex items-center gap-2 mb-2">
-                      <Checkbox 
-                        id="include-programming"
-                        checked={includeProgramming}
-                        onCheckedChange={(checked) => setIncludeProgramming(checked as boolean)}
-                      />
-                      <Label htmlFor="include-programming" className="text-sm">Include programming cost</Label>
-                    </div>
-                    <TimeInput
-                      hoursValue={programmingTimeHours}
-                      minutesValue={programmingTimeMinutes}
-                      onHoursChange={(e) => setProgrammingTimeHours(e.target.value)}
-                      onMinutesChange={(e) => setProgrammingTimeMinutes(e.target.value)}
-                      disabled={!includeProgramming}
-                    />
-                  </div>
+              <div className="space-y-6">
+                <div>
+                  <Label className="text-base font-semibold mb-3 block">Operations</Label>
+                  <OperationsManager
+                    operations={operations}
+                    onChange={setOperations}
+                    renderRateButton={(opId) => (
+                      <ShopRateCalculator onApplyRate={(rate) => applyShopRate(opId, rate)} />
+                    )}
+                  />
                 </div>
-                
-                <div className="space-y-4">
-                  <div>
-                    <Label htmlFor="machine-hourly-cost">Machine Hourly Cost ($):</Label>
-                    <Input
-                      id="machine-hourly-cost"
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      placeholder="0.00"
-                      value={machineHourlyCost}
-                      onChange={(e) => setMachineHourlyCost(e.target.value)}
-                    />
-                  </div>
-                  
-                  <div>
-                    <Label htmlFor="setup-hourly-cost">Setup Hourly Cost ($):</Label>
-                    <Input
-                      id="setup-hourly-cost"
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      placeholder="0.00"
-                      value={setupHourlyCost}
-                      onChange={(e) => setSetupHourlyCost(e.target.value)}
-                    />
-                  </div>
-                  
-                  <div>
-                    <Label htmlFor="programming-hourly-cost">Programming Hourly Cost ($):</Label>
-                    <Input
-                      id="programming-hourly-cost"
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      placeholder="0.00"
-                      value={programmingHourlyCost}
-                      onChange={(e) => setProgrammingHourlyCost(e.target.value)}
-                      disabled={!includeProgramming}
-                    />
-                  </div>
-                  
-                  <div className="grid grid-cols-2 gap-3">
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-4">
                     <div>
-                      <Label htmlFor="quantity">Quantity:</Label>
-                      <Input
-                        id="quantity"
-                        type="number"
-                        min="1"
-                        placeholder="1"
-                        value={quantity}
-                        onChange={(e) => setQuantity(e.target.value)}
+                      <Label htmlFor="programming-time">Programming Time:</Label>
+                      <div className="flex items-center gap-2 mb-2">
+                        <Checkbox 
+                          id="include-programming"
+                          checked={includeProgramming}
+                          onCheckedChange={(checked) => setIncludeProgramming(checked as boolean)}
+                        />
+                        <Label htmlFor="include-programming" className="text-sm">Include programming cost</Label>
+                      </div>
+                      <TimeInput
+                        hoursValue={programmingTimeHours}
+                        minutesValue={programmingTimeMinutes}
+                        onHoursChange={(e) => setProgrammingTimeHours(e.target.value)}
+                        onMinutesChange={(e) => setProgrammingTimeMinutes(e.target.value)}
+                        disabled={!includeProgramming}
                       />
                     </div>
+
+                    <ProcessesManager
+                      processes={finishingProcesses}
+                      onChange={handleFinishingChange}
+                    />
+                  </div>
+                  
+                  <div className="space-y-4">
                     <div>
-                      <Label htmlFor="setup-count">Setup Count:</Label>
+                      <Label htmlFor="programming-hourly-cost">Programming Hourly Cost ($):</Label>
                       <Input
-                        id="setup-count"
+                        id="programming-hourly-cost"
                         type="number"
-                        min="1"
-                        placeholder="1"
-                        value={setupCount}
-                        onChange={(e) => setSetupCount(e.target.value)}
+                        min="0"
+                        step="0.01"
+                        placeholder="0.00"
+                        value={programmingHourlyCost}
+                        onChange={(e) => setProgrammingHourlyCost(e.target.value)}
+                        disabled={!includeProgramming}
                       />
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <Label htmlFor="quantity">Quantity:</Label>
+                        <Input
+                          id="quantity"
+                          type="number"
+                          min="1"
+                          placeholder="1"
+                          value={quantity}
+                          onChange={(e) => setQuantity(e.target.value)}
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="setup-count">Setup Count:</Label>
+                        <Input
+                          id="setup-count"
+                          type="number"
+                          min="1"
+                          placeholder="1"
+                          value={setupCount}
+                          onChange={(e) => setSetupCount(e.target.value)}
+                        />
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -719,10 +625,10 @@ const MachiningCalculator = () => {
               </div>
 
               <QuantityBreakdown
-                machineTimePerPiece={calculateTotalTime(machineTimeHours, machineTimeMinutes)}
-                machineHourlyCost={parseFloat(machineHourlyCost) || 0}
-                setupTimeTotal={calculateTotalTime(setupTimeHours, setupTimeMinutes) * (parseInt(setupCount) || 1)}
-                setupHourlyCost={parseFloat(setupHourlyCost) || 0}
+                machineTimePerPiece={totalMachineTimePerPiece}
+                machineHourlyCost={getWeightedMachineRate()}
+                setupTimeTotal={aggSetupTimeTotal}
+                setupHourlyCost={getWeightedSetupRate()}
                 programmingTimeTotal={calculateTotalTime(programmingTimeHours, programmingTimeMinutes)}
                 programmingHourlyCost={parseFloat(programmingHourlyCost) || 0}
                 includeProgramming={includeProgramming}
