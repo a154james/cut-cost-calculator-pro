@@ -67,6 +67,7 @@ const MachiningCalculator = () => {
   const [addMarkup, setAddMarkup] = useState<boolean>(false);
   const [markupPercentage, setMarkupPercentage] = useState<string>("20");
   const [includeProgramming, setIncludeProgramming] = useState<boolean>(true);
+  const [manualMaterialEntry, setManualMaterialEntry] = useState<boolean>(false);
 
   const calculateOptimalBatchSizes = () => {
     const qtyNum = parseInt(quantity);
