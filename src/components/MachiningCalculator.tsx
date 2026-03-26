@@ -14,6 +14,7 @@ import { Switch } from "@/components/ui/switch";
 import ProcessesManager, { ProcessOption } from "./ProcessesManager";
 import TimeCalculator from "./TimeCalculator";
 import MaterialCalculator from "./MaterialCalculator";
+import QuantityBreakdown from "./QuantityBreakdown";
 import {
   Dialog,
   DialogContent,
