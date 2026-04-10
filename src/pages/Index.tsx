@@ -10,14 +10,8 @@ const Index = () => {
     <div className="min-h-screen flex flex-col bg-muted">
       <Header />
       <main className="flex-grow container mx-auto px-4 py-6">
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-          <div className="lg:col-span-3">
-            <MachiningCalculator />
-          </div>
-          <div className="lg:col-span-1">
-            <AdSensePanel className="sticky top-6" />
-          </div>
-        </div>
+        <AdSensePanel className="mb-6" />
+        <MachiningCalculator />
       </main>
       <Footer />
       <CookieConsentPopup />
