@@ -76,7 +76,6 @@ const JobScheduler: React.FC<JobSchedulerProps> = ({ defaultTotalHours }) => {
 
     let remaining = total;
     let partsRemaining = totalQty;
-    let cumulativeCompleted = 0;
     let carryHours = 0;
     let cursor = startOfDay(startDate);
     let workingDaysUsed = 0;
