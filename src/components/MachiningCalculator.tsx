@@ -16,6 +16,7 @@ import MaterialCalculator from "./MaterialCalculator";
 import QuantityBreakdown from "./QuantityBreakdown";
 import OperationsManager, { Operation, createDefaultOperation } from "./OperationsManager";
 import ShopRateCalculator from "./ShopRateCalculator";
+import JobScheduler from "./JobScheduler";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
