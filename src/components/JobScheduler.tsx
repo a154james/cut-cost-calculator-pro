@@ -76,6 +76,8 @@ const JobScheduler: React.FC<JobSchedulerProps> = ({ defaultTotalHours }) => {
 
     let remaining = total;
     let partsRemaining = totalQty;
+    let cumulativeCompleted = 0;
+    let carryHours = 0;
     let cursor = startOfDay(startDate);
     let workingDaysUsed = 0;
     let endDate = cursor;
@@ -107,13 +109,15 @@ const JobScheduler: React.FC<JobSchedulerProps> = ({ defaultTotalHours }) => {
 
         let dayParts = 0;
         if (rt > 0) {
-          const partsThisDay = used / rt;
+          const availableHrs = carryHours + used;
+          let completed = Math.floor(availableHrs / rt);
           if (useRunQty) {
-            dayParts = Math.min(partsRemaining, partsThisDay);
-            partsRemaining -= dayParts;
-          } else {
-            dayParts = partsThisDay;
+            completed = Math.min(completed, partsRemaining);
+            partsRemaining -= completed;
           }
+          carryHours = availableHrs - completed * rt;
+          dayParts = completed;
+          cumulativeCompleted += completed;
         }
 
         const fmt = (h: number) => {
@@ -442,7 +446,7 @@ const JobScheduler: React.FC<JobSchedulerProps> = ({ defaultTotalHours }) => {
                       <td className="px-3 py-2">{row.startTime}</td>
                       <td className="px-3 py-2">{row.endTime}</td>
                       <td className="px-3 py-2 text-right">{row.hours.toFixed(2)}</td>
-                      <td className="px-3 py-2 text-right">{row.parts > 0 ? row.parts.toFixed(2) : "—"}</td>
+                      <td className="px-3 py-2 text-right">{row.parts > 0 ? row.parts : "—"}</td>
                       <td className="px-3 py-2">
                         {row.unattended ? (
                           <span className="text-xs px-2 py-0.5 rounded bg-accent text-accent-foreground">Unattended</span>
