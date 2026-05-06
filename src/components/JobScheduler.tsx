@@ -473,6 +473,7 @@ const JobScheduler: React.FC<JobSchedulerProps> = ({ defaultTotalHours }) => {
               <table className="w-full text-sm">
                 <thead className="bg-muted/50">
                   <tr className="text-left">
+                    <th className="px-3 py-2 font-medium w-8"></th>
                     <th className="px-3 py-2 font-medium">Date</th>
                     <th className="px-3 py-2 font-medium">Day</th>
                     <th className="px-3 py-2 font-medium">Start</th>
@@ -483,23 +484,81 @@ const JobScheduler: React.FC<JobSchedulerProps> = ({ defaultTotalHours }) => {
                   </tr>
                 </thead>
                 <tbody>
-                  {result.breakdown.map((row, i) => (
-                    <tr key={i} className="border-t">
-                      <td className="px-3 py-2">{format(row.date, "MMM d, yyyy")}</td>
-                      <td className="px-3 py-2 text-muted-foreground">{format(row.date, "EEE")}</td>
-                      <td className="px-3 py-2">{row.startTime}</td>
-                      <td className="px-3 py-2">{row.endTime}</td>
-                      <td className="px-3 py-2 text-right">{row.hours.toFixed(2)}</td>
-                      <td className="px-3 py-2 text-right">{row.parts > 0 ? row.parts : "—"}</td>
-                      <td className="px-3 py-2">
-                        {row.unattended ? (
-                          <span className="text-xs px-2 py-0.5 rounded bg-accent text-accent-foreground">Unattended</span>
-                        ) : (
-                          <span className="text-xs text-muted-foreground">Attended</span>
+                  {result.breakdown.map((row, i) => {
+                    const expandable = row.segments && row.segments.length > 0;
+                    const isOpen = !!expandedDays[i];
+                    return (
+                      <React.Fragment key={i}>
+                        <tr
+                          className={cn("border-t", expandable && "cursor-pointer hover:bg-muted/30")}
+                          onClick={() => expandable && setExpandedDays((p) => ({ ...p, [i]: !p[i] }))}
+                        >
+                          <td className="px-3 py-2 text-muted-foreground">
+                            {expandable && (
+                              <ChevronRight className={cn("h-4 w-4 transition-transform", isOpen && "rotate-90")} />
+                            )}
+                          </td>
+                          <td className="px-3 py-2">{format(row.date, "MMM d, yyyy")}</td>
+                          <td className="px-3 py-2 text-muted-foreground">{format(row.date, "EEE")}</td>
+                          <td className="px-3 py-2">{row.startTime}</td>
+                          <td className="px-3 py-2">{row.endTime}</td>
+                          <td className="px-3 py-2 text-right">{row.hours.toFixed(2)}</td>
+                          <td className="px-3 py-2 text-right">{row.parts > 0 ? row.parts : "—"}</td>
+                          <td className="px-3 py-2">
+                            {row.unattended ? (
+                              <span className="text-xs px-2 py-0.5 rounded bg-accent text-accent-foreground">Unattended</span>
+                            ) : (
+                              <span className="text-xs text-muted-foreground">Attended</span>
+                            )}
+                          </td>
+                        </tr>
+                        {isOpen && expandable && (
+                          <tr className="bg-muted/20">
+                            <td></td>
+                            <td colSpan={7} className="px-3 py-2">
+                              <div className="text-xs font-medium text-muted-foreground mb-1">Per-part breakdown:</div>
+                              <table className="w-full text-xs">
+                                <thead>
+                                  <tr className="text-left text-muted-foreground">
+                                    <th className="py-1 pr-3">Part #</th>
+                                    <th className="py-1 pr-3">Start</th>
+                                    <th className="py-1 pr-3">End</th>
+                                    <th className="py-1 pr-3 text-right">Hours</th>
+                                    <th className="py-1 pr-3">Status</th>
+                                    <th className="py-1 pr-3">Mode</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {row.segments.map((s, j) => (
+                                    <tr key={j} className="border-t border-border/50">
+                                      <td className="py-1 pr-3">#{s.partNumber}</td>
+                                      <td className="py-1 pr-3">{s.startTime}</td>
+                                      <td className="py-1 pr-3">{s.endTime}</td>
+                                      <td className="py-1 pr-3 text-right">{s.hours.toFixed(2)}</td>
+                                      <td className="py-1 pr-3">
+                                        {s.completed ? (
+                                          <span className="text-primary">Completed</span>
+                                        ) : (
+                                          <span className="text-muted-foreground">In progress (carries over)</span>
+                                        )}
+                                      </td>
+                                      <td className="py-1 pr-3">
+                                        {s.unattended ? (
+                                          <span>Unattended</span>
+                                        ) : (
+                                          <span className="text-muted-foreground">Attended</span>
+                                        )}
+                                      </td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </td>
+                          </tr>
                         )}
-                      </td>
-                    </tr>
-                  ))}
+                      </React.Fragment>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
