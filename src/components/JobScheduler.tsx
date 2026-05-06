@@ -119,9 +119,12 @@ const JobScheduler: React.FC<JobSchedulerProps> = ({ defaultTotalHours }) => {
       grossPerDay,
       bufferHoursAbsorbed,
       workingDateList,
+      unattendedDateList,
+      unattendedDaysUsed,
+      unattendedHrs,
       reachedCap: safety >= 730 && remaining > 0,
     };
-  }, [totalHours, startDate, shiftStart, shiftEnd, lunchMinutes, breakPct, cleaningPct, miscPct, workingDays, holidays]);
+  }, [totalHours, startDate, shiftStart, shiftEnd, lunchMinutes, breakPct, cleaningPct, miscPct, workingDays, holidays, unattendedEnabled, runTimePerPart]);
 
   const toggleDay = (idx: number) => {
     setWorkingDays((prev) => prev.map((v, i) => (i === idx ? !v : v)));
