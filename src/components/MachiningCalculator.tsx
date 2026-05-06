@@ -353,18 +353,25 @@ const MachiningCalculator = () => {
     });
   };
 
-  const { totalMachineTimePerPiece } = getAggregatedValues();
+  const { totalMachineTimePerPiece, totalSetupTime } = getAggregatedValues();
   const aggSetupTimeTotal = operations.reduce((s, op) => 
     s + calculateTotalTime(op.setupTimeHours, op.setupTimeMinutes) * (parseInt(setupCount) || 1), 0
   );
 
+  const programmingTotal = includeProgramming
+    ? calculateTotalTime(programmingTimeHours, programmingTimeMinutes)
+    : 0;
+  const totalJobHours =
+    totalMachineTimePerPiece * (parseInt(quantity) || 0) + totalSetupTime + programmingTotal;
+
   return (
     <div className="max-w-4xl mx-auto">
       <Tabs defaultValue="machining" className="w-full">
-        <TabsList className="grid grid-cols-4">
+        <TabsList className="grid grid-cols-2 md:grid-cols-5 h-auto">
           <TabsTrigger value="machining">Machining Calculator</TabsTrigger>
           <TabsTrigger value="material">Material Calculator</TabsTrigger>
           <TabsTrigger value="time">Time Calculator</TabsTrigger>
+          <TabsTrigger value="scheduler">Job Scheduler</TabsTrigger>
           <TabsTrigger value="advanced">Advanced Options</TabsTrigger>
         </TabsList>
         
