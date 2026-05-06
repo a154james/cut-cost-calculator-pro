@@ -33,7 +33,9 @@ const JobScheduler: React.FC<JobSchedulerProps> = ({ defaultTotalHours }) => {
   const [unattendedEnabled, setUnattendedEnabled] = useState<boolean>(false);
   const [useRunQty, setUseRunQty] = useState<boolean>(false);
   const [expandedDays, setExpandedDays] = useState<Record<number, boolean>>({});
-  const [awayWindows, setAwayWindows] = useState<{ start: string; end: string }[]>([]);
+  const [awayWindows, setAwayWindows] = useState<
+    { start: string; end: string; scope: "every" | "weekday" | "date"; weekday?: number; date?: string }[]
+  >([]);
 
   useEffect(() => {
     if (useRunQty) {
