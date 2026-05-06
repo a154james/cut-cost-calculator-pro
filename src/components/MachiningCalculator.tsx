@@ -517,6 +517,10 @@ const MachiningCalculator = () => {
             <TabsContent value="time" className="mt-0" forceMount>
               <TimeCalculator />
             </TabsContent>
+
+            <TabsContent value="scheduler" className="mt-0" forceMount>
+              <JobScheduler defaultTotalHours={totalJobHours} />
+            </TabsContent>
             
             <TabsContent value="advanced" className="mt-0" forceMount>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
