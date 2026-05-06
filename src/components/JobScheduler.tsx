@@ -123,7 +123,7 @@ const JobScheduler: React.FC<JobSchedulerProps> = ({ defaultTotalHours }) => {
       awayWindows
         .filter((w) => {
           if (w.scope === "every") return true;
-          if (w.scope === "weekday") return w.weekday === d.getDay();
+          if (w.scope === "weekday") return (w.weekdays ?? []).includes(d.getDay());
           if (w.scope === "date" && w.date) {
             const [y, m, day] = w.date.split("-").map((n) => parseInt(n));
             return d.getFullYear() === y && d.getMonth() + 1 === m && d.getDate() === day;
