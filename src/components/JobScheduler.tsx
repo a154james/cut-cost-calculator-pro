@@ -35,7 +35,7 @@ const JobScheduler: React.FC<JobSchedulerProps> = ({ defaultTotalHours }) => {
   const [useRunQty, setUseRunQty] = useState<boolean>(false);
   const [expandedDays, setExpandedDays] = useState<Record<number, boolean>>({});
   const [awayWindows, setAwayWindows] = useState<
-    { start: string; end: string; scope: "every" | "weekday" | "date"; weekday?: number; date?: string }[]
+    { start: string; end: string; scope: "every" | "weekday" | "date"; weekdays?: number[]; date?: string }[]
   >([]);
 
   useEffect(() => {
@@ -44,7 +44,7 @@ const JobScheduler: React.FC<JobSchedulerProps> = ({ defaultTotalHours }) => {
       const qty = parseFloat(quantity) || 0;
       if (rt > 0 && qty > 0) {
         setUseAutoHours(false);
-        setTotalHours((rt * qty).toFixed(2));
+        setTotalHours(String(rt * qty));
       }
     }
   }, [runTimePerPart, quantity, useRunQty]);
@@ -123,7 +123,7 @@ const JobScheduler: React.FC<JobSchedulerProps> = ({ defaultTotalHours }) => {
       awayWindows
         .filter((w) => {
           if (w.scope === "every") return true;
-          if (w.scope === "weekday") return w.weekday === d.getDay();
+          if (w.scope === "weekday") return (w.weekdays ?? []).includes(d.getDay());
           if (w.scope === "date" && w.date) {
             const [y, m, day] = w.date.split("-").map((n) => parseInt(n));
             return d.getFullYear() === y && d.getMonth() + 1 === m && d.getDate() === day;
@@ -304,7 +304,7 @@ const JobScheduler: React.FC<JobSchedulerProps> = ({ defaultTotalHours }) => {
                 id="total-hours"
                 type="number"
                 min="0"
-                step="0.01"
+                step="any"
                 value={totalHours}
                 onChange={(e) => {
                   setUseAutoHours(false);
@@ -414,7 +414,8 @@ const JobScheduler: React.FC<JobSchedulerProps> = ({ defaultTotalHours }) => {
                                   ? {
                                       ...x,
                                       scope: v as "every" | "weekday" | "date",
-                                      weekday: v === "weekday" ? x.weekday ?? 1 : x.weekday,
+                                      weekdays:
+                                        v === "weekday" ? (x.weekdays && x.weekdays.length ? x.weekdays : [1]) : x.weekdays,
                                       date: v === "date" ? x.date ?? format(new Date(), "yyyy-MM-dd") : x.date,
                                     }
                                   : x
@@ -427,30 +428,41 @@ const JobScheduler: React.FC<JobSchedulerProps> = ({ defaultTotalHours }) => {
                           </SelectTrigger>
                           <SelectContent>
                             <SelectItem value="every">Every day</SelectItem>
-                            <SelectItem value="weekday">Specific weekday</SelectItem>
+                            <SelectItem value="weekday">Specific weekday(s)</SelectItem>
                             <SelectItem value="date">Specific date</SelectItem>
                           </SelectContent>
                         </Select>
                         {w.scope === "weekday" && (
-                          <Select
-                            value={String(w.weekday ?? 1)}
-                            onValueChange={(v) =>
-                              setAwayWindows((prev) =>
-                                prev.map((x, i) => (i === idx ? { ...x, weekday: parseInt(v) } : x))
-                              )
-                            }
-                          >
-                            <SelectTrigger className="h-9 w-32">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {DAY_LABELS.map((lbl, di) => (
-                                <SelectItem key={di} value={String(di)}>
+                          <div className="flex flex-wrap gap-1">
+                            {DAY_LABELS.map((lbl, di) => {
+                              const active = (w.weekdays ?? []).includes(di);
+                              return (
+                                <button
+                                  key={di}
+                                  type="button"
+                                  onClick={() =>
+                                    setAwayWindows((prev) =>
+                                      prev.map((x, i) => {
+                                        if (i !== idx) return x;
+                                        const cur = new Set(x.weekdays ?? []);
+                                        if (cur.has(di)) cur.delete(di);
+                                        else cur.add(di);
+                                        return { ...x, weekdays: Array.from(cur).sort() };
+                                      })
+                                    )
+                                  }
+                                  className={cn(
+                                    "px-2 py-1 rounded-md text-xs border transition-colors",
+                                    active
+                                      ? "bg-primary text-primary-foreground border-primary"
+                                      : "bg-background text-muted-foreground border-input hover:bg-accent"
+                                  )}
+                                >
                                   {lbl}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
+                                </button>
+                              );
+                            })}
+                          </div>
                         )}
                         {w.scope === "date" && (
                           <Input
@@ -515,7 +527,7 @@ const JobScheduler: React.FC<JobSchedulerProps> = ({ defaultTotalHours }) => {
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <Label htmlFor="run-time" className="text-xs">Run Time / Part (hr)</Label>
-                    <Input id="run-time" type="number" min="0" step="0.01" value={runTimePerPart} onChange={(e) => setRunTimePerPart(e.target.value)} />
+                    <Input id="run-time" type="number" min="0" step="any" value={runTimePerPart} onChange={(e) => setRunTimePerPart(e.target.value)} />
                   </div>
                   <div>
                     <Label htmlFor="qty" className="text-xs">Quantity</Label>
