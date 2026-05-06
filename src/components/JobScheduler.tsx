@@ -102,9 +102,18 @@ const JobScheduler: React.FC<JobSchedulerProps> = ({ defaultTotalHours }) => {
     let partCounter = 1; // index of the part currently being worked on
 
     const fmt = (h: number) => {
-      const hh = Math.floor(h);
-      const mm = Math.round((h - hh) * 60);
-      return `${String(hh).padStart(2, "0")}:${String(mm).padStart(2, "0")}`;
+      const dayOffset = Math.floor(h / 24);
+      const hourOfDay = ((h % 24) + 24) % 24;
+      let hh = Math.floor(hourOfDay);
+      const mm = Math.round((hourOfDay - hh) * 60);
+      const ampm = hh >= 12 ? "PM" : "AM";
+      const h12 = hh % 12 === 0 ? 12 : hh % 12;
+      const suffix = dayOffset > 0 ? ` +${dayOffset}d` : "";
+      return `${h12}:${String(mm).padStart(2, "0")} ${ampm}${suffix}`;
+    };
+    const fmtClock = (clock: string) => {
+      const [h, m] = clock.split(":").map((n) => parseInt(n) || 0);
+      return fmt(h + m / 60);
     };
 
     // Per-day away windows: filter by scope (every day, specific weekday, or specific date)
@@ -235,7 +244,7 @@ const JobScheduler: React.FC<JobSchedulerProps> = ({ defaultTotalHours }) => {
             hours: dayHoursTotal,
             parts: dayParts,
             unattended: dayUnattended,
-            startTime: shiftStart,
+            startTime: fmtClock(shiftStart),
             endTime: fmt(lastEndClock),
             segments,
           });
@@ -248,9 +257,7 @@ const JobScheduler: React.FC<JobSchedulerProps> = ({ defaultTotalHours }) => {
     }
 
     const calendarDays = Math.round((endDate.getTime() - startOfDay(startDate).getTime()) / (1000 * 60 * 60 * 24)) + 1;
-    const endH = Math.floor(endHourOfDay);
-    const endM = Math.round((endHourOfDay - endH) * 60);
-    const endTimeStr = `${String(endH).padStart(2, "0")}:${String(endM).padStart(2, "0")}`;
+    const endTimeStr = fmt(endHourOfDay);
     const bufferHoursAbsorbed = workingDaysUsed * grossPerDay * Math.min(buffer, 0.95);
 
     return {
