@@ -339,7 +339,12 @@ const JobScheduler: React.FC<JobSchedulerProps> = ({ defaultTotalHours }) => {
                     <span className="text-muted-foreground">Buffer absorbed:</span>{" "}
                     {result.bufferHoursAbsorbed.toFixed(2)} hr
                   </p>
-                  {result.reachedCap && (
+                  {unattendedEnabled && (
+                    <p>
+                      <span className="text-muted-foreground">Unattended past-shift days:</span>{" "}
+                      {result.unattendedDaysUsed} ({(result.unattendedHrs * result.unattendedDaysUsed).toFixed(2)} hr after hours)
+                    </p>
+                  )}
                     <p className="text-destructive text-xs mt-2">
                       Schedule exceeds 2-year horizon; check inputs.
                     </p>
