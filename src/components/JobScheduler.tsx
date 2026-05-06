@@ -366,17 +366,6 @@ const JobScheduler: React.FC<JobSchedulerProps> = ({ defaultTotalHours }) => {
             </div>
 
             <div>
-              <Label htmlFor="lunch">Lunch Break (minutes):</Label>
-              <Input
-                id="lunch"
-                type="number"
-                min="0"
-                value={lunchMinutes}
-                onChange={(e) => setLunchMinutes(e.target.value)}
-              />
-            </div>
-
-            <div>
               <div className="flex items-center justify-between mb-2">
                 <Label className="flex items-center gap-1">
                   <Clock className="h-4 w-4" /> Away Times (no new starts)
