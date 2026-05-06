@@ -35,7 +35,7 @@ const JobScheduler: React.FC<JobSchedulerProps> = ({ defaultTotalHours }) => {
   const [useRunQty, setUseRunQty] = useState<boolean>(false);
   const [expandedDays, setExpandedDays] = useState<Record<number, boolean>>({});
   const [awayWindows, setAwayWindows] = useState<
-    { start: string; end: string; scope: "every" | "weekday" | "date"; weekday?: number; date?: string }[]
+    { start: string; end: string; scope: "every" | "weekday" | "date"; weekdays?: number[]; date?: string }[]
   >([]);
 
   useEffect(() => {
@@ -515,7 +515,7 @@ const JobScheduler: React.FC<JobSchedulerProps> = ({ defaultTotalHours }) => {
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <Label htmlFor="run-time" className="text-xs">Run Time / Part (hr)</Label>
-                    <Input id="run-time" type="number" min="0" step="0.01" value={runTimePerPart} onChange={(e) => setRunTimePerPart(e.target.value)} />
+                    <Input id="run-time" type="number" min="0" step="any" value={runTimePerPart} onChange={(e) => setRunTimePerPart(e.target.value)} />
                   </div>
                   <div>
                     <Label htmlFor="qty" className="text-xs">Quantity</Label>
