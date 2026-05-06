@@ -7,7 +7,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { format, addDays, isSameDay, startOfDay } from "date-fns";
-import { Calendar as CalendarIcon, CalendarClock } from "lucide-react";
+import { Calendar as CalendarIcon, CalendarClock, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface JobSchedulerProps {
@@ -32,6 +32,7 @@ const JobScheduler: React.FC<JobSchedulerProps> = ({ defaultTotalHours }) => {
   const [quantity, setQuantity] = useState<string>("");
   const [unattendedEnabled, setUnattendedEnabled] = useState<boolean>(false);
   const [useRunQty, setUseRunQty] = useState<boolean>(false);
+  const [expandedDays, setExpandedDays] = useState<Record<number, boolean>>({});
 
   useEffect(() => {
     if (useRunQty) {
@@ -76,7 +77,6 @@ const JobScheduler: React.FC<JobSchedulerProps> = ({ defaultTotalHours }) => {
 
     let remaining = total;
     let partsRemaining = totalQty;
-    let cumulativeCompleted = 0;
     let carryHours = 0;
     let cursor = startOfDay(startDate);
     let workingDaysUsed = 0;
@@ -85,8 +85,23 @@ const JobScheduler: React.FC<JobSchedulerProps> = ({ defaultTotalHours }) => {
     let unattendedDaysUsed = 0;
     const workingDateList: Date[] = [];
     const unattendedDateList: Date[] = [];
-    const breakdown: { date: Date; hours: number; parts: number; unattended: boolean; startTime: string; endTime: string }[] = [];
+    const breakdown: {
+      date: Date;
+      hours: number;
+      parts: number;
+      unattended: boolean;
+      startTime: string;
+      endTime: string;
+      segments: { partNumber: number; startTime: string; endTime: string; hours: number; completed: boolean; unattended: boolean }[];
+    }[] = [];
     let safety = 0;
+    let partCounter = 1; // index of the part currently being worked on
+
+    const fmt = (h: number) => {
+      const hh = Math.floor(h);
+      const mm = Math.round((h - hh) * 60);
+      return `${String(hh).padStart(2, "0")}:${String(mm).padStart(2, "0")}`;
+    };
 
     while (remaining > 0 && safety < 730) {
       if (isWorkingDay(cursor)) {
@@ -107,24 +122,52 @@ const JobScheduler: React.FC<JobSchedulerProps> = ({ defaultTotalHours }) => {
           dayUnattended = true;
         }
 
+        // Map hours-into-day (productive units) to clock time
+        const hoursToClock = (h: number) => {
+          if (h <= productivePerDay) {
+            const frac = productivePerDay > 0 ? h / productivePerDay : 0;
+            return parseTime(shiftStart) + frac * shiftLen;
+          }
+          return parseTime(shiftEnd) + (h - productivePerDay);
+        };
+
+        const segments: typeof breakdown[number]["segments"] = [];
         let dayParts = 0;
         if (rt > 0) {
-          const availableHrs = carryHours + used;
-          let completed = Math.floor(availableHrs / rt);
-          if (useRunQty) {
-            completed = Math.min(completed, partsRemaining);
-            partsRemaining -= completed;
+          let hoursCursor = 0;
+          // First segment may continue a part started yesterday (carryHours already done)
+          let firstPartHoursDone = carryHours;
+          while (hoursCursor < used) {
+            const needed = rt - firstPartHoursDone;
+            const avail = used - hoursCursor;
+            const stopByQty = useRunQty && partsRemaining <= 0;
+            if (stopByQty) break;
+            const segHours = Math.min(needed, avail);
+            const segStart = hoursCursor;
+            const segEnd = hoursCursor + segHours;
+            const completed = segHours >= needed - 1e-9;
+            const segUnattended = segStart >= productivePerDay - 1e-9 || segEnd > productivePerDay + 1e-9;
+            segments.push({
+              partNumber: partCounter,
+              startTime: fmt(hoursToClock(segStart)),
+              endTime: fmt(hoursToClock(segEnd)),
+              hours: segHours,
+              completed,
+              unattended: segUnattended,
+            });
+            hoursCursor = segEnd;
+            if (completed) {
+              dayParts += 1;
+              partCounter += 1;
+              if (useRunQty) partsRemaining -= 1;
+              firstPartHoursDone = 0;
+            } else {
+              firstPartHoursDone += segHours;
+            }
           }
-          carryHours = availableHrs - completed * rt;
-          dayParts = completed;
-          cumulativeCompleted += completed;
+          carryHours = firstPartHoursDone;
         }
 
-        const fmt = (h: number) => {
-          const hh = Math.floor(h);
-          const mm = Math.round((h - hh) * 60);
-          return `${String(hh).padStart(2, "0")}:${String(mm).padStart(2, "0")}`;
-        };
         breakdown.push({
           date: cursor,
           hours: used,
@@ -132,6 +175,7 @@ const JobScheduler: React.FC<JobSchedulerProps> = ({ defaultTotalHours }) => {
           unattended: dayUnattended,
           startTime: shiftStart,
           endTime: fmt(endHourOfDay),
+          segments,
         });
       }
       if (remaining <= 0) break;
@@ -429,6 +473,7 @@ const JobScheduler: React.FC<JobSchedulerProps> = ({ defaultTotalHours }) => {
               <table className="w-full text-sm">
                 <thead className="bg-muted/50">
                   <tr className="text-left">
+                    <th className="px-3 py-2 font-medium w-8"></th>
                     <th className="px-3 py-2 font-medium">Date</th>
                     <th className="px-3 py-2 font-medium">Day</th>
                     <th className="px-3 py-2 font-medium">Start</th>
@@ -439,23 +484,81 @@ const JobScheduler: React.FC<JobSchedulerProps> = ({ defaultTotalHours }) => {
                   </tr>
                 </thead>
                 <tbody>
-                  {result.breakdown.map((row, i) => (
-                    <tr key={i} className="border-t">
-                      <td className="px-3 py-2">{format(row.date, "MMM d, yyyy")}</td>
-                      <td className="px-3 py-2 text-muted-foreground">{format(row.date, "EEE")}</td>
-                      <td className="px-3 py-2">{row.startTime}</td>
-                      <td className="px-3 py-2">{row.endTime}</td>
-                      <td className="px-3 py-2 text-right">{row.hours.toFixed(2)}</td>
-                      <td className="px-3 py-2 text-right">{row.parts > 0 ? row.parts : "—"}</td>
-                      <td className="px-3 py-2">
-                        {row.unattended ? (
-                          <span className="text-xs px-2 py-0.5 rounded bg-accent text-accent-foreground">Unattended</span>
-                        ) : (
-                          <span className="text-xs text-muted-foreground">Attended</span>
+                  {result.breakdown.map((row, i) => {
+                    const expandable = row.segments && row.segments.length > 0;
+                    const isOpen = !!expandedDays[i];
+                    return (
+                      <React.Fragment key={i}>
+                        <tr
+                          className={cn("border-t", expandable && "cursor-pointer hover:bg-muted/30")}
+                          onClick={() => expandable && setExpandedDays((p) => ({ ...p, [i]: !p[i] }))}
+                        >
+                          <td className="px-3 py-2 text-muted-foreground">
+                            {expandable && (
+                              <ChevronRight className={cn("h-4 w-4 transition-transform", isOpen && "rotate-90")} />
+                            )}
+                          </td>
+                          <td className="px-3 py-2">{format(row.date, "MMM d, yyyy")}</td>
+                          <td className="px-3 py-2 text-muted-foreground">{format(row.date, "EEE")}</td>
+                          <td className="px-3 py-2">{row.startTime}</td>
+                          <td className="px-3 py-2">{row.endTime}</td>
+                          <td className="px-3 py-2 text-right">{row.hours.toFixed(2)}</td>
+                          <td className="px-3 py-2 text-right">{row.parts > 0 ? row.parts : "—"}</td>
+                          <td className="px-3 py-2">
+                            {row.unattended ? (
+                              <span className="text-xs px-2 py-0.5 rounded bg-accent text-accent-foreground">Unattended</span>
+                            ) : (
+                              <span className="text-xs text-muted-foreground">Attended</span>
+                            )}
+                          </td>
+                        </tr>
+                        {isOpen && expandable && (
+                          <tr className="bg-muted/20">
+                            <td></td>
+                            <td colSpan={7} className="px-3 py-2">
+                              <div className="text-xs font-medium text-muted-foreground mb-1">Per-part breakdown:</div>
+                              <table className="w-full text-xs">
+                                <thead>
+                                  <tr className="text-left text-muted-foreground">
+                                    <th className="py-1 pr-3">Part #</th>
+                                    <th className="py-1 pr-3">Start</th>
+                                    <th className="py-1 pr-3">End</th>
+                                    <th className="py-1 pr-3 text-right">Hours</th>
+                                    <th className="py-1 pr-3">Status</th>
+                                    <th className="py-1 pr-3">Mode</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {row.segments.map((s, j) => (
+                                    <tr key={j} className="border-t border-border/50">
+                                      <td className="py-1 pr-3">#{s.partNumber}</td>
+                                      <td className="py-1 pr-3">{s.startTime}</td>
+                                      <td className="py-1 pr-3">{s.endTime}</td>
+                                      <td className="py-1 pr-3 text-right">{s.hours.toFixed(2)}</td>
+                                      <td className="py-1 pr-3">
+                                        {s.completed ? (
+                                          <span className="text-primary">Completed</span>
+                                        ) : (
+                                          <span className="text-muted-foreground">In progress (carries over)</span>
+                                        )}
+                                      </td>
+                                      <td className="py-1 pr-3">
+                                        {s.unattended ? (
+                                          <span>Unattended</span>
+                                        ) : (
+                                          <span className="text-muted-foreground">Attended</span>
+                                        )}
+                                      </td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </td>
+                          </tr>
                         )}
-                      </td>
-                    </tr>
-                  ))}
+                      </React.Fragment>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
