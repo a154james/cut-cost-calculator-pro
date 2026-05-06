@@ -85,8 +85,23 @@ const JobScheduler: React.FC<JobSchedulerProps> = ({ defaultTotalHours }) => {
     let unattendedDaysUsed = 0;
     const workingDateList: Date[] = [];
     const unattendedDateList: Date[] = [];
-    const breakdown: { date: Date; hours: number; parts: number; unattended: boolean; startTime: string; endTime: string }[] = [];
+    const breakdown: {
+      date: Date;
+      hours: number;
+      parts: number;
+      unattended: boolean;
+      startTime: string;
+      endTime: string;
+      segments: { partNumber: number; startTime: string; endTime: string; hours: number; completed: boolean; unattended: boolean }[];
+    }[] = [];
     let safety = 0;
+    let partCounter = 1; // index of the part currently being worked on
+
+    const fmt = (h: number) => {
+      const hh = Math.floor(h);
+      const mm = Math.round((h - hh) * 60);
+      return `${String(hh).padStart(2, "0")}:${String(mm).padStart(2, "0")}`;
+    };
 
     while (remaining > 0 && safety < 730) {
       if (isWorkingDay(cursor)) {
@@ -107,24 +122,52 @@ const JobScheduler: React.FC<JobSchedulerProps> = ({ defaultTotalHours }) => {
           dayUnattended = true;
         }
 
+        // Map hours-into-day (productive units) to clock time
+        const hoursToClock = (h: number) => {
+          if (h <= productivePerDay) {
+            const frac = productivePerDay > 0 ? h / productivePerDay : 0;
+            return parseTime(shiftStart) + frac * shiftLen;
+          }
+          return parseTime(shiftEnd) + (h - productivePerDay);
+        };
+
+        const segments: typeof breakdown[number]["segments"] = [];
         let dayParts = 0;
         if (rt > 0) {
-          const availableHrs = carryHours + used;
-          let completed = Math.floor(availableHrs / rt);
-          if (useRunQty) {
-            completed = Math.min(completed, partsRemaining);
-            partsRemaining -= completed;
+          let hoursCursor = 0;
+          // First segment may continue a part started yesterday (carryHours already done)
+          let firstPartHoursDone = carryHours;
+          while (hoursCursor < used) {
+            const needed = rt - firstPartHoursDone;
+            const avail = used - hoursCursor;
+            const stopByQty = useRunQty && partsRemaining <= 0;
+            if (stopByQty) break;
+            const segHours = Math.min(needed, avail);
+            const segStart = hoursCursor;
+            const segEnd = hoursCursor + segHours;
+            const completed = segHours >= needed - 1e-9;
+            const segUnattended = segStart >= productivePerDay - 1e-9 || segEnd > productivePerDay + 1e-9;
+            segments.push({
+              partNumber: partCounter,
+              startTime: fmt(hoursToClock(segStart)),
+              endTime: fmt(hoursToClock(segEnd)),
+              hours: segHours,
+              completed,
+              unattended: segUnattended,
+            });
+            hoursCursor = segEnd;
+            if (completed) {
+              dayParts += 1;
+              partCounter += 1;
+              if (useRunQty) partsRemaining -= 1;
+              firstPartHoursDone = 0;
+            } else {
+              firstPartHoursDone += segHours;
+            }
           }
-          carryHours = availableHrs - completed * rt;
-          dayParts = completed;
-          cumulativeCompleted += completed;
+          carryHours = firstPartHoursDone;
         }
 
-        const fmt = (h: number) => {
-          const hh = Math.floor(h);
-          const mm = Math.round((h - hh) * 60);
-          return `${String(hh).padStart(2, "0")}:${String(mm).padStart(2, "0")}`;
-        };
         breakdown.push({
           date: cursor,
           hours: used,
@@ -132,6 +175,7 @@ const JobScheduler: React.FC<JobSchedulerProps> = ({ defaultTotalHours }) => {
           unattended: dayUnattended,
           startTime: shiftStart,
           endTime: fmt(endHourOfDay),
+          segments,
         });
       }
       if (remaining <= 0) break;
