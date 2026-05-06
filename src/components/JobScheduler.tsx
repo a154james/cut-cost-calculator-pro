@@ -44,7 +44,7 @@ const JobScheduler: React.FC<JobSchedulerProps> = ({ defaultTotalHours }) => {
       const qty = parseFloat(quantity) || 0;
       if (rt > 0 && qty > 0) {
         setUseAutoHours(false);
-        setTotalHours((rt * qty).toFixed(2));
+        setTotalHours(String(rt * qty));
       }
     }
   }, [runTimePerPart, quantity, useRunQty]);
@@ -304,7 +304,7 @@ const JobScheduler: React.FC<JobSchedulerProps> = ({ defaultTotalHours }) => {
                 id="total-hours"
                 type="number"
                 min="0"
-                step="0.01"
+                step="any"
                 value={totalHours}
                 onChange={(e) => {
                   setUseAutoHours(false);
