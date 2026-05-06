@@ -106,15 +106,24 @@ const JobScheduler: React.FC<JobSchedulerProps> = ({ defaultTotalHours }) => {
       return `${String(hh).padStart(2, "0")}:${String(mm).padStart(2, "0")}`;
     };
 
-    // Parse and validate away windows (clock-time blocks during shift where new starts are forbidden)
+    // Per-day away windows: filter by scope (every day, specific weekday, or specific date)
     const shiftStartClock = parseTime(shiftStart);
     const shiftEndClock = parseTime(shiftEnd);
-    const aways = awayWindows
-      .map((w) => ({ s: parseTime(w.start), e: parseTime(w.end) }))
-      .filter((w) => w.e > w.s && w.e > shiftStartClock && w.s < shiftEndClock)
-      .map((w) => ({ s: Math.max(w.s, shiftStartClock), e: Math.min(w.e, shiftEndClock) }))
-      .sort((a, b) => a.s - b.s);
-    const isInAway = (clock: number) => aways.some((w) => clock >= w.s - 1e-9 && clock < w.e - 1e-9);
+    const awaysForDay = (d: Date) =>
+      awayWindows
+        .filter((w) => {
+          if (w.scope === "every") return true;
+          if (w.scope === "weekday") return w.weekday === d.getDay();
+          if (w.scope === "date" && w.date) {
+            const [y, m, day] = w.date.split("-").map((n) => parseInt(n));
+            return d.getFullYear() === y && d.getMonth() + 1 === m && d.getDate() === day;
+          }
+          return false;
+        })
+        .map((w) => ({ s: parseTime(w.start), e: parseTime(w.end) }))
+        .filter((w) => w.e > w.s && w.e > shiftStartClock && w.s < shiftEndClock)
+        .map((w) => ({ s: Math.max(w.s, shiftStartClock), e: Math.min(w.e, shiftEndClock) }))
+        .sort((a, b) => a.s - b.s);
 
     while (remaining > 0 && safety < 730) {
       if (isWorkingDay(cursor)) {
