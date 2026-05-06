@@ -168,41 +168,32 @@ const JobScheduler: React.FC<JobSchedulerProps> = ({ defaultTotalHours }) => {
           while (
             remaining > 1e-9 &&
             !(useRunQty && partsRemaining <= 0) &&
-            dayProductiveUsed < productivePerDay - 1e-9
+            clock < shiftEndClock - 1e-9
           ) {
             const startAt = tryStartNewPart(clock);
-            if (startAt === null) break; // no slot left in shift to start a new part
-            // Cap by productive capacity remaining
-            const productiveSpace = productivePerDay - dayProductiveUsed;
-            const maxHrs = Math.min(rt, remaining, productiveSpace + (rt - productiveSpace)); // allow finishing part even past productive cap if we already started
-            // We'll start the part; once started it runs through away windows.
+            if (startAt === null || startAt >= shiftEndClock - 1e-9) break;
             const segStart = startAt;
-            const willEnd = segStart + rt;
-            const isLastPart =
-              (useRunQty && partsRemaining - 1 <= 0) || remaining - rt <= 1e-9;
-            const exceedsShift = willEnd > shiftEndClock + 1e-9;
+            const segEnd = segStart + rt;
+            const exceedsShift = segEnd > shiftEndClock + 1e-9;
 
-            if (exceedsShift && !(unattendedEnabled && isLastPart)) {
-              // Can't start a part that won't finish by shift end (unless unattended last part)
+            if (exceedsShift && !unattendedEnabled) {
+              // Operator not allowed to leave machine running past shift; defer to next day
               break;
             }
 
-            const segEnd = willEnd;
             const segHrs = rt;
             const productiveSpaceNow = Math.max(0, productivePerDay - dayProductiveUsed);
-            const productivePortion = Math.min(segHrs, productiveSpaceNow);
-            dayProductiveUsed += productivePortion;
+            dayProductiveUsed += Math.min(segHrs, productiveSpaceNow);
             dayHoursTotal += segHrs;
             remaining -= segHrs;
-            const segUnattended = exceedsShift;
-            if (segUnattended) dayUnattended = true;
+            if (exceedsShift) dayUnattended = true;
             segments.push({
               partNumber: partCounter,
               startTime: fmt(segStart),
               endTime: fmt(segEnd),
               hours: segHrs,
               completed: true,
-              unattended: segUnattended,
+              unattended: exceedsShift,
             });
             dayParts += 1;
             partCounter += 1;
