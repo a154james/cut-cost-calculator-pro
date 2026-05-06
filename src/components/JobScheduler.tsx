@@ -224,6 +224,46 @@ const JobScheduler: React.FC<JobSchedulerProps> = ({ defaultTotalHours }) => {
                 onChange={(e) => setLunchMinutes(e.target.value)}
               />
             </div>
+
+            <div className="border-t pt-4 space-y-3">
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  id="use-run-qty"
+                  checked={useRunQty}
+                  onCheckedChange={(c) => setUseRunQty(c as boolean)}
+                />
+                <Label htmlFor="use-run-qty" className="text-sm">
+                  Specify run time per part × quantity
+                </Label>
+              </div>
+              {useRunQty && (
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label htmlFor="run-time" className="text-xs">Run Time / Part (hr)</Label>
+                    <Input id="run-time" type="number" min="0" step="0.01" value={runTimePerPart} onChange={(e) => setRunTimePerPart(e.target.value)} />
+                  </div>
+                  <div>
+                    <Label htmlFor="qty" className="text-xs">Quantity</Label>
+                    <Input id="qty" type="number" min="0" value={quantity} onChange={(e) => setQuantity(e.target.value)} />
+                  </div>
+                </div>
+              )}
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  id="unattended"
+                  checked={unattendedEnabled}
+                  onCheckedChange={(c) => setUnattendedEnabled(c as boolean)}
+                />
+                <Label htmlFor="unattended" className="text-sm">
+                  Allow unattended overnight / past-shift run
+                </Label>
+              </div>
+              {unattendedEnabled && (
+                <p className="text-xs text-muted-foreground">
+                  Operator sets up the last part of the day; machine finishes one full part ({(parseFloat(runTimePerPart) || 0).toFixed(2)} hr) past shift end unattended.
+                </p>
+              )}
+            </div>
           </div>
 
           <div className="space-y-4">
