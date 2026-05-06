@@ -68,24 +68,36 @@ const JobScheduler: React.FC<JobSchedulerProps> = ({ defaultTotalHours }) => {
     const isHoliday = (d: Date) => holidays.some((h) => isSameDay(h, d));
     const isWorkingDay = (d: Date) => workingDays[d.getDay()] && !isHoliday(d);
 
+    const unattendedHrs = unattendedEnabled ? Math.max(0, parseFloat(runTimePerPart) || 0) : 0;
+    const dailyCapacity = productivePerDay + unattendedHrs;
+
     let remaining = total;
     let cursor = startOfDay(startDate);
     let workingDaysUsed = 0;
     let endDate = cursor;
     let endHourOfDay = parseTime(shiftStart);
+    let unattendedDaysUsed = 0;
     const workingDateList: Date[] = [];
+    const unattendedDateList: Date[] = [];
     let safety = 0;
 
     while (remaining > 0 && safety < 730) {
       if (isWorkingDay(cursor)) {
         workingDateList.push(cursor);
-        const used = Math.min(productivePerDay, remaining);
+        const used = Math.min(dailyCapacity, remaining);
         remaining -= used;
         workingDaysUsed += 1;
         endDate = cursor;
-        // compute end hour: shift start + (used hours including buffer + lunch proportionally)
-        const fractionOfDay = productivePerDay > 0 ? used / productivePerDay : 0;
-        endHourOfDay = parseTime(shiftStart) + fractionOfDay * shiftLen;
+        if (used <= productivePerDay) {
+          const fractionOfDay = productivePerDay > 0 ? used / productivePerDay : 0;
+          endHourOfDay = parseTime(shiftStart) + fractionOfDay * shiftLen;
+        } else {
+          // ran past shift end with one unattended part
+          const overflow = used - productivePerDay;
+          endHourOfDay = parseTime(shiftEnd) + overflow;
+          unattendedDaysUsed += 1;
+          unattendedDateList.push(cursor);
+        }
       }
       if (remaining <= 0) break;
       cursor = addDays(cursor, 1);
