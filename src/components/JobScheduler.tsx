@@ -366,6 +366,61 @@ const JobScheduler: React.FC<JobSchedulerProps> = ({ defaultTotalHours }) => {
               />
             </div>
 
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <Label className="flex items-center gap-1">
+                  <Clock className="h-4 w-4" /> Away Times (no new starts)
+                </Label>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setAwayWindows((prev) => [...prev, { start: "12:00", end: "14:00" }])}
+                >
+                  <Plus className="h-3 w-3 mr-1" /> Add
+                </Button>
+              </div>
+              {awayWindows.length === 0 ? (
+                <p className="text-xs text-muted-foreground">
+                  Block windows where the operator is unavailable to load a new part. Parts already running continue through the window.
+                </p>
+              ) : (
+                <div className="space-y-2">
+                  {awayWindows.map((w, idx) => (
+                    <div key={idx} className="flex items-center gap-2">
+                      <Input
+                        type="time"
+                        value={w.start}
+                        onChange={(e) =>
+                          setAwayWindows((prev) =>
+                            prev.map((x, i) => (i === idx ? { ...x, start: e.target.value } : x))
+                          )
+                        }
+                      />
+                      <span className="text-xs text-muted-foreground">to</span>
+                      <Input
+                        type="time"
+                        value={w.end}
+                        onChange={(e) =>
+                          setAwayWindows((prev) =>
+                            prev.map((x, i) => (i === idx ? { ...x, end: e.target.value } : x))
+                          )
+                        }
+                      />
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => setAwayWindows((prev) => prev.filter((_, i) => i !== idx))}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
             <div className="border-t pt-4 space-y-3">
               <div className="flex items-center gap-2">
                 <Checkbox
