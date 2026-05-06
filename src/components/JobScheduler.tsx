@@ -446,7 +446,7 @@ const JobScheduler: React.FC<JobSchedulerProps> = ({ defaultTotalHours }) => {
                       <td className="px-3 py-2">{row.startTime}</td>
                       <td className="px-3 py-2">{row.endTime}</td>
                       <td className="px-3 py-2 text-right">{row.hours.toFixed(2)}</td>
-                      <td className="px-3 py-2 text-right">{row.parts > 0 ? row.parts.toFixed(2) : "—"}</td>
+                      <td className="px-3 py-2 text-right">{row.parts > 0 ? row.parts : "—"}</td>
                       <td className="px-3 py-2">
                         {row.unattended ? (
                           <span className="text-xs px-2 py-0.5 rounded bg-accent text-accent-foreground">Unattended</span>
