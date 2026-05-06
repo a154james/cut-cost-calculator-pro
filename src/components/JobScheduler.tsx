@@ -71,7 +71,11 @@ const JobScheduler: React.FC<JobSchedulerProps> = ({ defaultTotalHours }) => {
     const unattendedHrs = unattendedEnabled ? Math.max(0, parseFloat(runTimePerPart) || 0) : 0;
     const dailyCapacity = productivePerDay + unattendedHrs;
 
+    const rt = parseFloat(runTimePerPart) || 0;
+    const totalQty = useRunQty ? (parseFloat(quantity) || 0) : 0;
+
     let remaining = total;
+    let partsRemaining = totalQty;
     let cursor = startOfDay(startDate);
     let workingDaysUsed = 0;
     let endDate = cursor;
@@ -79,6 +83,7 @@ const JobScheduler: React.FC<JobSchedulerProps> = ({ defaultTotalHours }) => {
     let unattendedDaysUsed = 0;
     const workingDateList: Date[] = [];
     const unattendedDateList: Date[] = [];
+    const breakdown: { date: Date; hours: number; parts: number; unattended: boolean; startTime: string; endTime: string }[] = [];
     let safety = 0;
 
     while (remaining > 0 && safety < 730) {
@@ -88,16 +93,42 @@ const JobScheduler: React.FC<JobSchedulerProps> = ({ defaultTotalHours }) => {
         remaining -= used;
         workingDaysUsed += 1;
         endDate = cursor;
+        let dayUnattended = false;
         if (used <= productivePerDay) {
           const fractionOfDay = productivePerDay > 0 ? used / productivePerDay : 0;
           endHourOfDay = parseTime(shiftStart) + fractionOfDay * shiftLen;
         } else {
-          // ran past shift end with one unattended part
           const overflow = used - productivePerDay;
           endHourOfDay = parseTime(shiftEnd) + overflow;
           unattendedDaysUsed += 1;
           unattendedDateList.push(cursor);
+          dayUnattended = true;
         }
+
+        let dayParts = 0;
+        if (rt > 0) {
+          const partsThisDay = used / rt;
+          if (useRunQty) {
+            dayParts = Math.min(partsRemaining, partsThisDay);
+            partsRemaining -= dayParts;
+          } else {
+            dayParts = partsThisDay;
+          }
+        }
+
+        const fmt = (h: number) => {
+          const hh = Math.floor(h);
+          const mm = Math.round((h - hh) * 60);
+          return `${String(hh).padStart(2, "0")}:${String(mm).padStart(2, "0")}`;
+        };
+        breakdown.push({
+          date: cursor,
+          hours: used,
+          parts: dayParts,
+          unattended: dayUnattended,
+          startTime: shiftStart,
+          endTime: fmt(endHourOfDay),
+        });
       }
       if (remaining <= 0) break;
       cursor = addDays(cursor, 1);
