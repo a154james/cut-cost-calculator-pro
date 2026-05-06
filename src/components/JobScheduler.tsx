@@ -417,6 +417,46 @@ const JobScheduler: React.FC<JobSchedulerProps> = ({ defaultTotalHours }) => {
             </div>
           </div>
         )}
+
+        {result && result.breakdown.length > 0 && (
+          <div>
+            <Label className="block mb-2">Daily Production Breakdown:</Label>
+            <div className="border rounded-md overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-muted/50">
+                  <tr className="text-left">
+                    <th className="px-3 py-2 font-medium">Date</th>
+                    <th className="px-3 py-2 font-medium">Day</th>
+                    <th className="px-3 py-2 font-medium">Start</th>
+                    <th className="px-3 py-2 font-medium">End</th>
+                    <th className="px-3 py-2 font-medium text-right">Hours</th>
+                    <th className="px-3 py-2 font-medium text-right">Parts</th>
+                    <th className="px-3 py-2 font-medium">Mode</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {result.breakdown.map((row, i) => (
+                    <tr key={i} className="border-t">
+                      <td className="px-3 py-2">{format(row.date, "MMM d, yyyy")}</td>
+                      <td className="px-3 py-2 text-muted-foreground">{format(row.date, "EEE")}</td>
+                      <td className="px-3 py-2">{row.startTime}</td>
+                      <td className="px-3 py-2">{row.endTime}</td>
+                      <td className="px-3 py-2 text-right">{row.hours.toFixed(2)}</td>
+                      <td className="px-3 py-2 text-right">{row.parts > 0 ? row.parts.toFixed(2) : "—"}</td>
+                      <td className="px-3 py-2">
+                        {row.unattended ? (
+                          <span className="text-xs px-2 py-0.5 rounded bg-accent text-accent-foreground">Unattended</span>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">Attended</span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
       </CardContent>
     </Card>
   );
