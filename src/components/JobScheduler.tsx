@@ -257,9 +257,7 @@ const JobScheduler: React.FC<JobSchedulerProps> = ({ defaultTotalHours }) => {
     }
 
     const calendarDays = Math.round((endDate.getTime() - startOfDay(startDate).getTime()) / (1000 * 60 * 60 * 24)) + 1;
-    const endH = Math.floor(endHourOfDay);
-    const endM = Math.round((endHourOfDay - endH) * 60);
-    const endTimeStr = `${String(endH).padStart(2, "0")}:${String(endM).padStart(2, "0")}`;
+    const endTimeStr = fmt(endHourOfDay);
     const bufferHoursAbsorbed = workingDaysUsed * grossPerDay * Math.min(buffer, 0.95);
 
     return {
