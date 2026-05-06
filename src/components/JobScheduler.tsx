@@ -7,7 +7,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { format, addDays, isSameDay, startOfDay } from "date-fns";
-import { Calendar as CalendarIcon, CalendarClock, ChevronRight } from "lucide-react";
+import { Calendar as CalendarIcon, CalendarClock, ChevronRight, Plus, Trash2, Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface JobSchedulerProps {
@@ -33,6 +33,7 @@ const JobScheduler: React.FC<JobSchedulerProps> = ({ defaultTotalHours }) => {
   const [unattendedEnabled, setUnattendedEnabled] = useState<boolean>(false);
   const [useRunQty, setUseRunQty] = useState<boolean>(false);
   const [expandedDays, setExpandedDays] = useState<Record<number, boolean>>({});
+  const [awayWindows, setAwayWindows] = useState<{ start: string; end: string }[]>([]);
 
   useEffect(() => {
     if (useRunQty) {
