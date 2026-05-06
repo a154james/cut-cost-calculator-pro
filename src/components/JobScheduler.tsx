@@ -7,7 +7,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { format, addDays, isSameDay, startOfDay } from "date-fns";
-import { Calendar as CalendarIcon, CalendarClock, ChevronRight } from "lucide-react";
+import { Calendar as CalendarIcon, CalendarClock, ChevronRight, Plus, Trash2, Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface JobSchedulerProps {
@@ -33,6 +33,7 @@ const JobScheduler: React.FC<JobSchedulerProps> = ({ defaultTotalHours }) => {
   const [unattendedEnabled, setUnattendedEnabled] = useState<boolean>(false);
   const [useRunQty, setUseRunQty] = useState<boolean>(false);
   const [expandedDays, setExpandedDays] = useState<Record<number, boolean>>({});
+  const [awayWindows, setAwayWindows] = useState<{ start: string; end: string }[]>([]);
 
   useEffect(() => {
     if (useRunQty) {
@@ -103,82 +104,141 @@ const JobScheduler: React.FC<JobSchedulerProps> = ({ defaultTotalHours }) => {
       return `${String(hh).padStart(2, "0")}:${String(mm).padStart(2, "0")}`;
     };
 
+    // Parse and validate away windows (clock-time blocks during shift where new starts are forbidden)
+    const shiftStartClock = parseTime(shiftStart);
+    const shiftEndClock = parseTime(shiftEnd);
+    const aways = awayWindows
+      .map((w) => ({ s: parseTime(w.start), e: parseTime(w.end) }))
+      .filter((w) => w.e > w.s && w.e > shiftStartClock && w.s < shiftEndClock)
+      .map((w) => ({ s: Math.max(w.s, shiftStartClock), e: Math.min(w.e, shiftEndClock) }))
+      .sort((a, b) => a.s - b.s);
+    const isInAway = (clock: number) => aways.some((w) => clock >= w.s - 1e-9 && clock < w.e - 1e-9);
+
     while (remaining > 0 && safety < 730) {
       if (isWorkingDay(cursor)) {
         workingDateList.push(cursor);
-        const used = Math.min(dailyCapacity, remaining);
-        remaining -= used;
-        workingDaysUsed += 1;
         endDate = cursor;
+        const segments: typeof breakdown[number]["segments"] = [];
+        let dayProductiveUsed = 0; // counts toward productivePerDay cap
+        let dayHoursTotal = 0;
+        let dayParts = 0;
         let dayUnattended = false;
-        if (used <= productivePerDay) {
-          const fractionOfDay = productivePerDay > 0 ? used / productivePerDay : 0;
-          endHourOfDay = parseTime(shiftStart) + fractionOfDay * shiftLen;
-        } else {
-          const overflow = used - productivePerDay;
-          endHourOfDay = parseTime(shiftEnd) + overflow;
-          unattendedDaysUsed += 1;
-          unattendedDateList.push(cursor);
-          dayUnattended = true;
-        }
+        let clock = shiftStartClock;
+        let lastEndClock = shiftStartClock;
 
-        // Map hours-into-day (productive units) to clock time
-        const hoursToClock = (h: number) => {
-          if (h <= productivePerDay) {
-            const frac = productivePerDay > 0 ? h / productivePerDay : 0;
-            return parseTime(shiftStart) + frac * shiftLen;
+        const tryStartNewPart = (c: number): number | null => {
+          // Find the earliest clock >= c where no away window blocks the start
+          let t = c;
+          for (const w of aways) {
+            if (t >= w.s - 1e-9 && t < w.e - 1e-9) t = w.e;
           }
-          return parseTime(shiftEnd) + (h - productivePerDay);
+          return t < shiftEndClock ? t : null;
         };
 
-        const segments: typeof breakdown[number]["segments"] = [];
-        let dayParts = 0;
         if (rt > 0) {
-          let hoursCursor = 0;
-          // First segment may continue a part started yesterday (carryHours already done)
-          let firstPartHoursDone = carryHours;
-          while (hoursCursor < used) {
-            const needed = rt - firstPartHoursDone;
-            const avail = used - hoursCursor;
-            const stopByQty = useRunQty && partsRemaining <= 0;
-            if (stopByQty) break;
-            const segHours = Math.min(needed, avail);
-            const segStart = hoursCursor;
-            const segEnd = hoursCursor + segHours;
-            const completed = segHours >= needed - 1e-9;
-            const segUnattended = segStart >= productivePerDay - 1e-9 || segEnd > productivePerDay + 1e-9;
+          // Continue any carried-over part first; carried parts continue running regardless of away
+          if (carryHours > 0) {
+            const needed = rt - carryHours;
+            const segStart = clock;
+            const segEnd = clock + needed;
+            const segHrs = needed;
+            // Apply against productive capacity (cap at productivePerDay)
+            const productiveSpace = Math.max(0, productivePerDay - dayProductiveUsed);
+            const productivePortion = Math.min(segHrs, productiveSpace);
+            dayProductiveUsed += productivePortion;
+            dayHoursTotal += segHrs;
+            remaining -= segHrs;
             segments.push({
               partNumber: partCounter,
-              startTime: fmt(hoursToClock(segStart)),
-              endTime: fmt(hoursToClock(segEnd)),
-              hours: segHours,
-              completed,
+              startTime: fmt(segStart),
+              endTime: fmt(segEnd),
+              hours: segHrs,
+              completed: true,
+              unattended: false,
+            });
+            dayParts += 1;
+            partCounter += 1;
+            if (useRunQty) partsRemaining -= 1;
+            carryHours = 0;
+            clock = segEnd;
+            lastEndClock = segEnd;
+          }
+
+          // Now repeatedly try to start new parts
+          while (
+            remaining > 1e-9 &&
+            !(useRunQty && partsRemaining <= 0) &&
+            dayProductiveUsed < productivePerDay - 1e-9
+          ) {
+            const startAt = tryStartNewPart(clock);
+            if (startAt === null) break; // no slot left in shift to start a new part
+            // Cap by productive capacity remaining
+            const productiveSpace = productivePerDay - dayProductiveUsed;
+            const maxHrs = Math.min(rt, remaining, productiveSpace + (rt - productiveSpace)); // allow finishing part even past productive cap if we already started
+            // We'll start the part; once started it runs through away windows.
+            const segStart = startAt;
+            const willEnd = segStart + rt;
+            const isLastPart =
+              (useRunQty && partsRemaining - 1 <= 0) || remaining - rt <= 1e-9;
+            const exceedsShift = willEnd > shiftEndClock + 1e-9;
+
+            if (exceedsShift && !(unattendedEnabled && isLastPart)) {
+              // Can't start a part that won't finish by shift end (unless unattended last part)
+              break;
+            }
+
+            const segEnd = willEnd;
+            const segHrs = rt;
+            const productiveSpaceNow = Math.max(0, productivePerDay - dayProductiveUsed);
+            const productivePortion = Math.min(segHrs, productiveSpaceNow);
+            dayProductiveUsed += productivePortion;
+            dayHoursTotal += segHrs;
+            remaining -= segHrs;
+            const segUnattended = exceedsShift;
+            if (segUnattended) dayUnattended = true;
+            segments.push({
+              partNumber: partCounter,
+              startTime: fmt(segStart),
+              endTime: fmt(segEnd),
+              hours: segHrs,
+              completed: true,
               unattended: segUnattended,
             });
-            hoursCursor = segEnd;
-            if (completed) {
-              dayParts += 1;
-              partCounter += 1;
-              if (useRunQty) partsRemaining -= 1;
-              firstPartHoursDone = 0;
-            } else {
-              firstPartHoursDone += segHours;
-            }
+            dayParts += 1;
+            partCounter += 1;
+            if (useRunQty) partsRemaining -= 1;
+            clock = segEnd;
+            lastEndClock = segEnd;
           }
-          carryHours = firstPartHoursDone;
+        } else {
+          // No run-time/part info: fall back to bulk hours model with productive cap
+          const used = Math.min(productivePerDay, remaining);
+          dayProductiveUsed = used;
+          dayHoursTotal = used;
+          remaining -= used;
+          const frac = productivePerDay > 0 ? used / productivePerDay : 0;
+          lastEndClock = shiftStartClock + frac * shiftLen;
         }
 
-        breakdown.push({
-          date: cursor,
-          hours: used,
-          parts: dayParts,
-          unattended: dayUnattended,
-          startTime: shiftStart,
-          endTime: fmt(endHourOfDay),
-          segments,
-        });
+        if (dayHoursTotal > 0) {
+          workingDaysUsed += 1;
+          if (dayUnattended) {
+            unattendedDaysUsed += 1;
+            unattendedDateList.push(cursor);
+          }
+          breakdown.push({
+            date: cursor,
+            hours: dayHoursTotal,
+            parts: dayParts,
+            unattended: dayUnattended,
+            startTime: shiftStart,
+            endTime: fmt(lastEndClock),
+            segments,
+          });
+          endHourOfDay = lastEndClock;
+        }
       }
-      if (remaining <= 0) break;
+      if (remaining <= 1e-9) break;
       cursor = addDays(cursor, 1);
       safety += 1;
     }
@@ -205,7 +265,7 @@ const JobScheduler: React.FC<JobSchedulerProps> = ({ defaultTotalHours }) => {
       partsRemaining,
       reachedCap: safety >= 730 && remaining > 0,
     };
-  }, [totalHours, startDate, shiftStart, shiftEnd, lunchMinutes, breakPct, cleaningPct, miscPct, workingDays, holidays, unattendedEnabled, runTimePerPart, useRunQty, quantity]);
+  }, [totalHours, startDate, shiftStart, shiftEnd, lunchMinutes, breakPct, cleaningPct, miscPct, workingDays, holidays, unattendedEnabled, runTimePerPart, useRunQty, quantity, awayWindows]);
 
   const toggleDay = (idx: number) => {
     setWorkingDays((prev) => prev.map((v, i) => (i === idx ? !v : v)));
@@ -304,6 +364,61 @@ const JobScheduler: React.FC<JobSchedulerProps> = ({ defaultTotalHours }) => {
                 value={lunchMinutes}
                 onChange={(e) => setLunchMinutes(e.target.value)}
               />
+            </div>
+
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <Label className="flex items-center gap-1">
+                  <Clock className="h-4 w-4" /> Away Times (no new starts)
+                </Label>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setAwayWindows((prev) => [...prev, { start: "12:00", end: "14:00" }])}
+                >
+                  <Plus className="h-3 w-3 mr-1" /> Add
+                </Button>
+              </div>
+              {awayWindows.length === 0 ? (
+                <p className="text-xs text-muted-foreground">
+                  Block windows where the operator is unavailable to load a new part. Parts already running continue through the window.
+                </p>
+              ) : (
+                <div className="space-y-2">
+                  {awayWindows.map((w, idx) => (
+                    <div key={idx} className="flex items-center gap-2">
+                      <Input
+                        type="time"
+                        value={w.start}
+                        onChange={(e) =>
+                          setAwayWindows((prev) =>
+                            prev.map((x, i) => (i === idx ? { ...x, start: e.target.value } : x))
+                          )
+                        }
+                      />
+                      <span className="text-xs text-muted-foreground">to</span>
+                      <Input
+                        type="time"
+                        value={w.end}
+                        onChange={(e) =>
+                          setAwayWindows((prev) =>
+                            prev.map((x, i) => (i === idx ? { ...x, end: e.target.value } : x))
+                          )
+                        }
+                      />
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => setAwayWindows((prev) => prev.filter((_, i) => i !== idx))}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
             <div className="border-t pt-4 space-y-3">
