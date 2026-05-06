@@ -24,7 +24,7 @@ const JobScheduler: React.FC<JobSchedulerProps> = ({ defaultTotalHours }) => {
   const [workingDays, setWorkingDays] = useState<boolean[]>([false, true, true, true, true, true, false]);
   const [shiftStart, setShiftStart] = useState<string>("08:00");
   const [shiftEnd, setShiftEnd] = useState<string>("17:00");
-  const [lunchMinutes, setLunchMinutes] = useState<string>("30");
+  
   const [breakPct, setBreakPct] = useState<string>("10");
   const [cleaningPct, setCleaningPct] = useState<string>("5");
   const [miscPct, setMiscPct] = useState<string>("5");
@@ -63,8 +63,7 @@ const JobScheduler: React.FC<JobSchedulerProps> = ({ defaultTotalHours }) => {
     if (!startDate || total <= 0) return null;
 
     const shiftLen = Math.max(0, parseTime(shiftEnd) - parseTime(shiftStart));
-    const lunch = (parseFloat(lunchMinutes) || 0) / 60;
-    const grossPerDay = Math.max(0, shiftLen - lunch);
+    const grossPerDay = Math.max(0, shiftLen);
     const buffer = ((parseFloat(breakPct) || 0) + (parseFloat(cleaningPct) || 0) + (parseFloat(miscPct) || 0)) / 100;
     const productivePerDay = grossPerDay * (1 - Math.min(buffer, 0.95));
 
@@ -276,7 +275,7 @@ const JobScheduler: React.FC<JobSchedulerProps> = ({ defaultTotalHours }) => {
       partsRemaining,
       reachedCap: safety >= 730 && remaining > 0,
     };
-  }, [totalHours, startDate, shiftStart, shiftEnd, lunchMinutes, breakPct, cleaningPct, miscPct, workingDays, holidays, unattendedEnabled, runTimePerPart, useRunQty, quantity, awayWindows]);
+  }, [totalHours, startDate, shiftStart, shiftEnd, breakPct, cleaningPct, miscPct, workingDays, holidays, unattendedEnabled, runTimePerPart, useRunQty, quantity, awayWindows]);
 
   const toggleDay = (idx: number) => {
     setWorkingDays((prev) => prev.map((v, i) => (i === idx ? !v : v)));
