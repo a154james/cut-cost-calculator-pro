@@ -129,6 +129,7 @@ const JobScheduler: React.FC<JobSchedulerProps> = ({ defaultTotalHours }) => {
       if (isWorkingDay(cursor)) {
         workingDateList.push(cursor);
         endDate = cursor;
+        const aways = awaysForDay(cursor);
         const segments: typeof breakdown[number]["segments"] = [];
         let dayProductiveUsed = 0; // counts toward productivePerDay cap
         let dayHoursTotal = 0;
