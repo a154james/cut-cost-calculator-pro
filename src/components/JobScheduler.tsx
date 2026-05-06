@@ -28,6 +28,21 @@ const JobScheduler: React.FC<JobSchedulerProps> = ({ defaultTotalHours }) => {
   const [cleaningPct, setCleaningPct] = useState<string>("5");
   const [miscPct, setMiscPct] = useState<string>("5");
   const [holidays, setHolidays] = useState<Date[]>([]);
+  const [runTimePerPart, setRunTimePerPart] = useState<string>("");
+  const [quantity, setQuantity] = useState<string>("");
+  const [unattendedEnabled, setUnattendedEnabled] = useState<boolean>(false);
+  const [useRunQty, setUseRunQty] = useState<boolean>(false);
+
+  useEffect(() => {
+    if (useRunQty) {
+      const rt = parseFloat(runTimePerPart) || 0;
+      const qty = parseFloat(quantity) || 0;
+      if (rt > 0 && qty > 0) {
+        setUseAutoHours(false);
+        setTotalHours((rt * qty).toFixed(2));
+      }
+    }
+  }, [runTimePerPart, quantity, useRunQty]);
 
   useEffect(() => {
     if (useAutoHours) setTotalHours(defaultTotalHours.toFixed(2));
@@ -53,24 +68,36 @@ const JobScheduler: React.FC<JobSchedulerProps> = ({ defaultTotalHours }) => {
     const isHoliday = (d: Date) => holidays.some((h) => isSameDay(h, d));
     const isWorkingDay = (d: Date) => workingDays[d.getDay()] && !isHoliday(d);
 
+    const unattendedHrs = unattendedEnabled ? Math.max(0, parseFloat(runTimePerPart) || 0) : 0;
+    const dailyCapacity = productivePerDay + unattendedHrs;
+
     let remaining = total;
     let cursor = startOfDay(startDate);
     let workingDaysUsed = 0;
     let endDate = cursor;
     let endHourOfDay = parseTime(shiftStart);
+    let unattendedDaysUsed = 0;
     const workingDateList: Date[] = [];
+    const unattendedDateList: Date[] = [];
     let safety = 0;
 
     while (remaining > 0 && safety < 730) {
       if (isWorkingDay(cursor)) {
         workingDateList.push(cursor);
-        const used = Math.min(productivePerDay, remaining);
+        const used = Math.min(dailyCapacity, remaining);
         remaining -= used;
         workingDaysUsed += 1;
         endDate = cursor;
-        // compute end hour: shift start + (used hours including buffer + lunch proportionally)
-        const fractionOfDay = productivePerDay > 0 ? used / productivePerDay : 0;
-        endHourOfDay = parseTime(shiftStart) + fractionOfDay * shiftLen;
+        if (used <= productivePerDay) {
+          const fractionOfDay = productivePerDay > 0 ? used / productivePerDay : 0;
+          endHourOfDay = parseTime(shiftStart) + fractionOfDay * shiftLen;
+        } else {
+          // ran past shift end with one unattended part
+          const overflow = used - productivePerDay;
+          endHourOfDay = parseTime(shiftEnd) + overflow;
+          unattendedDaysUsed += 1;
+          unattendedDateList.push(cursor);
+        }
       }
       if (remaining <= 0) break;
       cursor = addDays(cursor, 1);
@@ -92,9 +119,12 @@ const JobScheduler: React.FC<JobSchedulerProps> = ({ defaultTotalHours }) => {
       grossPerDay,
       bufferHoursAbsorbed,
       workingDateList,
+      unattendedDateList,
+      unattendedDaysUsed,
+      unattendedHrs,
       reachedCap: safety >= 730 && remaining > 0,
     };
-  }, [totalHours, startDate, shiftStart, shiftEnd, lunchMinutes, breakPct, cleaningPct, miscPct, workingDays, holidays]);
+  }, [totalHours, startDate, shiftStart, shiftEnd, lunchMinutes, breakPct, cleaningPct, miscPct, workingDays, holidays, unattendedEnabled, runTimePerPart]);
 
   const toggleDay = (idx: number) => {
     setWorkingDays((prev) => prev.map((v, i) => (i === idx ? !v : v)));
@@ -194,6 +224,46 @@ const JobScheduler: React.FC<JobSchedulerProps> = ({ defaultTotalHours }) => {
                 onChange={(e) => setLunchMinutes(e.target.value)}
               />
             </div>
+
+            <div className="border-t pt-4 space-y-3">
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  id="use-run-qty"
+                  checked={useRunQty}
+                  onCheckedChange={(c) => setUseRunQty(c as boolean)}
+                />
+                <Label htmlFor="use-run-qty" className="text-sm">
+                  Specify run time per part × quantity
+                </Label>
+              </div>
+              {useRunQty && (
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label htmlFor="run-time" className="text-xs">Run Time / Part (hr)</Label>
+                    <Input id="run-time" type="number" min="0" step="0.01" value={runTimePerPart} onChange={(e) => setRunTimePerPart(e.target.value)} />
+                  </div>
+                  <div>
+                    <Label htmlFor="qty" className="text-xs">Quantity</Label>
+                    <Input id="qty" type="number" min="0" value={quantity} onChange={(e) => setQuantity(e.target.value)} />
+                  </div>
+                </div>
+              )}
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  id="unattended"
+                  checked={unattendedEnabled}
+                  onCheckedChange={(c) => setUnattendedEnabled(c as boolean)}
+                />
+                <Label htmlFor="unattended" className="text-sm">
+                  Allow unattended overnight / past-shift run
+                </Label>
+              </div>
+              {unattendedEnabled && (
+                <p className="text-xs text-muted-foreground">
+                  Operator sets up the last part of the day; machine finishes one full part ({(parseFloat(runTimePerPart) || 0).toFixed(2)} hr) past shift end unattended.
+                </p>
+              )}
+            </div>
           </div>
 
           <div className="space-y-4">
@@ -269,6 +339,12 @@ const JobScheduler: React.FC<JobSchedulerProps> = ({ defaultTotalHours }) => {
                     <span className="text-muted-foreground">Buffer absorbed:</span>{" "}
                     {result.bufferHoursAbsorbed.toFixed(2)} hr
                   </p>
+                  {unattendedEnabled && (
+                    <p>
+                      <span className="text-muted-foreground">Unattended past-shift days:</span>{" "}
+                      {result.unattendedDaysUsed} ({(result.unattendedHrs * result.unattendedDaysUsed).toFixed(2)} hr after hours)
+                    </p>
+                  )}
                   {result.reachedCap && (
                     <p className="text-destructive text-xs mt-2">
                       Schedule exceeds 2-year horizon; check inputs.
