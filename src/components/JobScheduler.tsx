@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { format, addDays, isSameDay, startOfDay } from "date-fns";
 import { Calendar as CalendarIcon, CalendarClock, ChevronRight, Plus, Trash2, Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -378,7 +379,12 @@ const JobScheduler: React.FC<JobSchedulerProps> = ({ defaultTotalHours }) => {
                   type="button"
                   variant="outline"
                   size="sm"
-                  onClick={() => setAwayWindows((prev) => [...prev, { start: "12:00", end: "14:00" }])}
+                  onClick={() =>
+                    setAwayWindows((prev) => [
+                      ...prev,
+                      { start: "12:00", end: "14:00", scope: "every" as const },
+                    ])
+                  }
                 >
                   <Plus className="h-3 w-3 mr-1" /> Add
                 </Button>
@@ -388,36 +394,99 @@ const JobScheduler: React.FC<JobSchedulerProps> = ({ defaultTotalHours }) => {
                   Block windows where the operator is unavailable to load a new part. Parts already running continue through the window.
                 </p>
               ) : (
-                <div className="space-y-2">
+                <div className="space-y-3">
                   {awayWindows.map((w, idx) => (
-                    <div key={idx} className="flex items-center gap-2">
-                      <Input
-                        type="time"
-                        value={w.start}
-                        onChange={(e) =>
-                          setAwayWindows((prev) =>
-                            prev.map((x, i) => (i === idx ? { ...x, start: e.target.value } : x))
-                          )
-                        }
-                      />
-                      <span className="text-xs text-muted-foreground">to</span>
-                      <Input
-                        type="time"
-                        value={w.end}
-                        onChange={(e) =>
-                          setAwayWindows((prev) =>
-                            prev.map((x, i) => (i === idx ? { ...x, end: e.target.value } : x))
-                          )
-                        }
-                      />
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => setAwayWindows((prev) => prev.filter((_, i) => i !== idx))}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                    <div key={idx} className="space-y-2 border rounded-md p-2">
+                      <div className="flex items-center gap-2">
+                        <Select
+                          value={w.scope}
+                          onValueChange={(v) =>
+                            setAwayWindows((prev) =>
+                              prev.map((x, i) =>
+                                i === idx
+                                  ? {
+                                      ...x,
+                                      scope: v as "every" | "weekday" | "date",
+                                      weekday: v === "weekday" ? x.weekday ?? 1 : x.weekday,
+                                      date: v === "date" ? x.date ?? format(new Date(), "yyyy-MM-dd") : x.date,
+                                    }
+                                  : x
+                              )
+                            )
+                          }
+                        >
+                          <SelectTrigger className="h-9 flex-1">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="every">Every day</SelectItem>
+                            <SelectItem value="weekday">Specific weekday</SelectItem>
+                            <SelectItem value="date">Specific date</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        {w.scope === "weekday" && (
+                          <Select
+                            value={String(w.weekday ?? 1)}
+                            onValueChange={(v) =>
+                              setAwayWindows((prev) =>
+                                prev.map((x, i) => (i === idx ? { ...x, weekday: parseInt(v) } : x))
+                              )
+                            }
+                          >
+                            <SelectTrigger className="h-9 w-32">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {DAY_LABELS.map((lbl, di) => (
+                                <SelectItem key={di} value={String(di)}>
+                                  {lbl}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        )}
+                        {w.scope === "date" && (
+                          <Input
+                            type="date"
+                            className="h-9 w-40"
+                            value={w.date ?? ""}
+                            onChange={(e) =>
+                              setAwayWindows((prev) =>
+                                prev.map((x, i) => (i === idx ? { ...x, date: e.target.value } : x))
+                              )
+                            }
+                          />
+                        )}
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => setAwayWindows((prev) => prev.filter((_, i) => i !== idx))}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Input
+                          type="time"
+                          value={w.start}
+                          onChange={(e) =>
+                            setAwayWindows((prev) =>
+                              prev.map((x, i) => (i === idx ? { ...x, start: e.target.value } : x))
+                            )
+                          }
+                        />
+                        <span className="text-xs text-muted-foreground">to</span>
+                        <Input
+                          type="time"
+                          value={w.end}
+                          onChange={(e) =>
+                            setAwayWindows((prev) =>
+                              prev.map((x, i) => (i === idx ? { ...x, end: e.target.value } : x))
+                            )
+                          }
+                        />
+                      </div>
                     </div>
                   ))}
                 </div>
