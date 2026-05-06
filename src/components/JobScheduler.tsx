@@ -414,7 +414,8 @@ const JobScheduler: React.FC<JobSchedulerProps> = ({ defaultTotalHours }) => {
                                   ? {
                                       ...x,
                                       scope: v as "every" | "weekday" | "date",
-                                      weekday: v === "weekday" ? x.weekday ?? 1 : x.weekday,
+                                      weekdays:
+                                        v === "weekday" ? (x.weekdays && x.weekdays.length ? x.weekdays : [1]) : x.weekdays,
                                       date: v === "date" ? x.date ?? format(new Date(), "yyyy-MM-dd") : x.date,
                                     }
                                   : x
@@ -427,30 +428,41 @@ const JobScheduler: React.FC<JobSchedulerProps> = ({ defaultTotalHours }) => {
                           </SelectTrigger>
                           <SelectContent>
                             <SelectItem value="every">Every day</SelectItem>
-                            <SelectItem value="weekday">Specific weekday</SelectItem>
+                            <SelectItem value="weekday">Specific weekday(s)</SelectItem>
                             <SelectItem value="date">Specific date</SelectItem>
                           </SelectContent>
                         </Select>
                         {w.scope === "weekday" && (
-                          <Select
-                            value={String(w.weekday ?? 1)}
-                            onValueChange={(v) =>
-                              setAwayWindows((prev) =>
-                                prev.map((x, i) => (i === idx ? { ...x, weekday: parseInt(v) } : x))
-                              )
-                            }
-                          >
-                            <SelectTrigger className="h-9 w-32">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {DAY_LABELS.map((lbl, di) => (
-                                <SelectItem key={di} value={String(di)}>
+                          <div className="flex flex-wrap gap-1">
+                            {DAY_LABELS.map((lbl, di) => {
+                              const active = (w.weekdays ?? []).includes(di);
+                              return (
+                                <button
+                                  key={di}
+                                  type="button"
+                                  onClick={() =>
+                                    setAwayWindows((prev) =>
+                                      prev.map((x, i) => {
+                                        if (i !== idx) return x;
+                                        const cur = new Set(x.weekdays ?? []);
+                                        if (cur.has(di)) cur.delete(di);
+                                        else cur.add(di);
+                                        return { ...x, weekdays: Array.from(cur).sort() };
+                                      })
+                                    )
+                                  }
+                                  className={cn(
+                                    "px-2 py-1 rounded-md text-xs border transition-colors",
+                                    active
+                                      ? "bg-primary text-primary-foreground border-primary"
+                                      : "bg-background text-muted-foreground border-input hover:bg-accent"
+                                  )}
+                                >
                                   {lbl}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
+                                </button>
+                              );
+                            })}
+                          </div>
                         )}
                         {w.scope === "date" && (
                           <Input
