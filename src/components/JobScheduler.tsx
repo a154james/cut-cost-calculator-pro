@@ -28,6 +28,21 @@ const JobScheduler: React.FC<JobSchedulerProps> = ({ defaultTotalHours }) => {
   const [cleaningPct, setCleaningPct] = useState<string>("5");
   const [miscPct, setMiscPct] = useState<string>("5");
   const [holidays, setHolidays] = useState<Date[]>([]);
+  const [runTimePerPart, setRunTimePerPart] = useState<string>("");
+  const [quantity, setQuantity] = useState<string>("");
+  const [unattendedEnabled, setUnattendedEnabled] = useState<boolean>(false);
+  const [useRunQty, setUseRunQty] = useState<boolean>(false);
+
+  useEffect(() => {
+    if (useRunQty) {
+      const rt = parseFloat(runTimePerPart) || 0;
+      const qty = parseFloat(quantity) || 0;
+      if (rt > 0 && qty > 0) {
+        setUseAutoHours(false);
+        setTotalHours((rt * qty).toFixed(2));
+      }
+    }
+  }, [runTimePerPart, quantity, useRunQty]);
 
   useEffect(() => {
     if (useAutoHours) setTotalHours(defaultTotalHours.toFixed(2));
