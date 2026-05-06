@@ -76,6 +76,8 @@ const JobScheduler: React.FC<JobSchedulerProps> = ({ defaultTotalHours }) => {
 
     let remaining = total;
     let partsRemaining = totalQty;
+    let cumulativeCompleted = 0;
+    let carryHours = 0;
     let cursor = startOfDay(startDate);
     let workingDaysUsed = 0;
     let endDate = cursor;
@@ -107,13 +109,15 @@ const JobScheduler: React.FC<JobSchedulerProps> = ({ defaultTotalHours }) => {
 
         let dayParts = 0;
         if (rt > 0) {
-          const partsThisDay = used / rt;
+          const availableHrs = carryHours + used;
+          let completed = Math.floor(availableHrs / rt);
           if (useRunQty) {
-            dayParts = Math.min(partsRemaining, partsThisDay);
-            partsRemaining -= dayParts;
-          } else {
-            dayParts = partsThisDay;
+            completed = Math.min(completed, partsRemaining);
+            partsRemaining -= completed;
           }
+          carryHours = availableHrs - completed * rt;
+          dayParts = completed;
+          cumulativeCompleted += completed;
         }
 
         const fmt = (h: number) => {
