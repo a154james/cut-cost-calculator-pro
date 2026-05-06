@@ -1,61 +1,48 @@
+## Plan: Job Scheduler Tab (Machining Time → Calendar Days)
 
+Add a new tab to the calculator that turns the total job hours from the Machining tab into an actual finish date on a calendar, based on the user's working schedule and buffer allowances.
 
-## Plan: Multi-Operation Job Support + Shop Rate Calculator
+### New tab
 
-### Feature 6: Multi-Operation Job Support
+Add a 5th tab `Job Scheduler` to `MachiningCalculator.tsx` (grid becomes `grid-cols-5`, stacks on mobile). Tab renders a new component `JobScheduler.tsx`.
 
-Allow users to define multiple machining operations (e.g., Op 1: Mill, Op 2: Turn, Op 3: Drill), each with its own machine time, setup time, and hourly rate. All operations sum into the total job cost.
+### Inputs (in `JobScheduler.tsx`)
 
-**New component: `src/components/OperationsManager.tsx`**
-- A card/section within the Machining tab that replaces the single set of time/cost inputs
-- Each operation has: name (text input), machine time (hours/min), setup time (hours/min), machine hourly rate, setup hourly rate
-- Default starts with one operation; "Add Operation" button adds more
-- Each operation has a delete button (except when only one remains)
-- Shows a summary row with total machine time and total cost across all operations
+1. **Total job hours** — pre-filled from the Machining tab's aggregated total (machine time per piece × quantity + total setup time + programming time if included). Editable override field so users can plan a hypothetical job too.
+2. **Start date** — date picker (Shadcn Popover + Calendar, with `pointer-events-auto`).
+3. **Working days** — 7 checkboxes (Mon–Sun), defaults Mon–Fri.
+4. **Shift hours per working day** — start time + end time inputs (e.g. 08:00 → 17:00). Optional lunch break duration (minutes) subtracted from each working day.
+5. **Buffer allowances** (all optional, expressed as % of productive time or fixed minutes/day):
+   - Operator breaks (default 10%)
+   - Machine cleaning / maintenance (default 5%)
+   - Changeover / misc downtime (default 5%)
+6. **Holidays / skip dates** — multi-select calendar to exclude specific dates.
 
-**Changes to `MachiningCalculator.tsx`:**
-- Replace individual machine time, setup time, machine hourly cost, and setup hourly cost state with an `operations` array state
-- Each operation: `{ id, name, machineTimeHours, machineTimeMinutes, setupTimeHours, setupTimeMinutes, machineHourlyCost, setupHourlyCost }`
-- Update `calculateCosts()` to loop through all operations, summing machine costs and setup costs
-- Update `resetForm()` to reset operations array
-- Update `printQuote()` to list each operation in the quote
-- Update `QuantityBreakdown` props to pass aggregated values
-- Programming time stays global (not per-operation) since programming applies to the whole job
+### Output
 
-### Feature 8: Shop Rate Calculator
+- **Effective productive hours per working day** = (shift length − lunch) × (1 − total buffer %).
+- **Total working days needed** = ceil(total hours / effective hours per day).
+- **Estimated end date** = walk forward from start date, skipping non-working days and holidays, until working days are consumed. Handle partial last day (show end time within the last day's shift).
+- Display a results card with: end date, end time, total calendar days span, working days used, productive hours/day, total buffer hours absorbed.
+- Render a small calendar (Shadcn `Calendar` in read-only mode) highlighting: start date (primary), working days in range (accent), holidays (muted), end date (destructive/highlight).
 
-A utility dialog/tool that helps users calculate their hourly shop rate based on overhead costs and desired profit.
+### Wiring
 
-**New component: `src/components/ShopRateCalculator.tsx`**
-- Accessible via a button/icon in the Machining tab near the hourly rate inputs
-- Opens a Dialog with inputs:
-  - Monthly overhead costs (rent, utilities, insurance, etc.)
-  - Monthly labor cost (wages + benefits)
-  - Equipment cost per month (depreciation/lease)
-  - Working hours per month (default 160)
-  - Desired profit margin (%)
-- Calculates: `shopRate = (overhead + labor + equipment) / workingHours * (1 + profitMargin/100)`
-- "Apply Rate" button that populates the machine hourly cost field in the parent calculator
-- Shows breakdown of cost components per hour
+- Lift the aggregated total-hours value from `MachiningCalculator` (already computed in `getAggregatedValues`) and pass as a prop `defaultTotalHours` to `JobScheduler`.
+- Scheduler keeps its own local state; does not mutate machining state.
+- No backend, no persistence beyond component state.
 
-**Changes to `MachiningCalculator.tsx`:**
-- Import and render `ShopRateCalculator` with a callback to set the hourly rate on an operation
-- Small calculator icon button next to hourly cost inputs that opens the shop rate calculator
+### Files
 
-### Technical Details
+**Create**
+- `src/components/JobScheduler.tsx` — the entire feature (form + calculation + result + mini calendar).
 
-- Operations stored as: `useState<Operation[]>([defaultOperation])`
-- Operation type defined inline or in a types file
-- Use `crypto.randomUUID()` or simple counter for operation IDs
-- Shop rate calculator is a self-contained dialog component with local state
-- Both features use existing UI components (Card, Input, Label, Button, Dialog)
-- The tabs grid changes from `grid-cols-4` to accommodate or stays the same (shop rate is a dialog, not a tab)
+**Modify**
+- `src/components/MachiningCalculator.tsx` — add 5th `TabsTrigger` + `TabsContent`, expose total hours to the new tab, change tabs grid to `grid-cols-2 md:grid-cols-5`.
 
-### Files to create:
-1. `src/components/OperationsManager.tsx` -- multi-operation UI
-2. `src/components/ShopRateCalculator.tsx` -- shop rate calculator dialog
+### Technical notes
 
-### Files to modify:
-1. `src/components/MachiningCalculator.tsx` -- integrate both features, refactor state
-2. `src/components/QuantityBreakdown.tsx` -- no changes needed if aggregated values are passed
-
+- Use `date-fns` (already in project): `addDays`, `format`, `isSameDay`, `getDay`, `addMinutes`.
+- Working-day walk: simple loop, capped at e.g. 730 days to avoid runaway loops on bad input.
+- All colors via existing semantic tokens — no hardcoded colors.
+- Mobile: stack inputs single column; calendar full width.
