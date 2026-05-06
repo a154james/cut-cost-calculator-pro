@@ -345,6 +345,7 @@ const JobScheduler: React.FC<JobSchedulerProps> = ({ defaultTotalHours }) => {
                       {result.unattendedDaysUsed} ({(result.unattendedHrs * result.unattendedDaysUsed).toFixed(2)} hr after hours)
                     </p>
                   )}
+                  {result.reachedCap && (
                     <p className="text-destructive text-xs mt-2">
                       Schedule exceeds 2-year horizon; check inputs.
                     </p>
