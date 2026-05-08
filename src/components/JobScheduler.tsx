@@ -585,53 +585,6 @@ const JobScheduler: React.FC<JobSchedulerProps> = ({ defaultTotalHours }) => {
               )}
             </div>
 
-            <div className="border rounded-md p-4 bg-muted/30">
-              <div className="flex items-center gap-2 mb-3">
-                <CalendarClock className="h-5 w-5 text-primary" />
-                <h3 className="font-semibold">Schedule Result</h3>
-              </div>
-              {result ? (
-                <div className="space-y-1 text-sm">
-                  <p>
-                    <span className="text-muted-foreground">End date:</span>{" "}
-                    <span className="font-bold text-base">{format(result.endDate, "PPP")}</span>
-                  </p>
-                  <p>
-                    <span className="text-muted-foreground">End time on last day:</span>{" "}
-                    <span className="font-medium">{result.endTimeStr}</span>
-                  </p>
-                  <p>
-                    <span className="text-muted-foreground">Calendar days:</span> {result.calendarDays}
-                  </p>
-                  <p>
-                    <span className="text-muted-foreground">Working days used:</span> {result.workingDaysUsed}
-                  </p>
-                  <p>
-                    <span className="text-muted-foreground">Productive hrs/day:</span>{" "}
-                    {result.productivePerDay.toFixed(2)} (of {result.grossPerDay.toFixed(2)} gross)
-                  </p>
-                  <p>
-                    <span className="text-muted-foreground">Buffer absorbed:</span>{" "}
-                    {result.bufferHoursAbsorbed.toFixed(2)} hr
-                  </p>
-                  {unattendedEnabled && (
-                    <p>
-                      <span className="text-muted-foreground">Unattended past-shift days:</span>{" "}
-                      {result.unattendedDaysUsed} ({(result.unattendedHrs * result.unattendedDaysUsed).toFixed(2)} hr after hours)
-                    </p>
-                  )}
-                  {result.reachedCap && (
-                    <p className="text-destructive text-xs mt-2">
-                      Schedule exceeds 2-year horizon; check inputs.
-                    </p>
-                  )}
-                </div>
-              ) : (
-                <p className="text-sm text-muted-foreground">
-                  Enter total hours and a valid shift to see the projected end date.
-                </p>
-              )}
-            </div>
           </div>
         </div>
 
