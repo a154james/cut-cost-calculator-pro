@@ -1,7 +1,7 @@
 
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Label } from "@/components/ui/label";
@@ -378,10 +378,10 @@ const MachiningCalculator = () => {
         
         <Card className="mt-6">
           <CardHeader className="bg-muted">
-            <CardTitle className="text-2xl font-bold flex items-center justify-center gap-2">
+            <h2 className="text-2xl font-bold flex items-center justify-center gap-2 leading-none tracking-tight">
               <Calculator className="h-6 w-6" />
               CNC Machining Cost Calculator
-            </CardTitle>
+            </h2>
           </CardHeader>
           
           <CardContent className="pt-6">
