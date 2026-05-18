@@ -1,0 +1,7 @@
+# CNC Machining Cost Calculator
+
+> Free web tool for machine shops to estimate per-piece machining cost, material usage, shop rates, and job schedules to build accurate quotes.
+
+## Pages
+
+- [Calculator](/): Machining, material, time, and job-scheduling calculators with quote printing.

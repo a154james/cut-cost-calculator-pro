@@ -468,6 +468,7 @@ const JobScheduler: React.FC<JobSchedulerProps> = ({ defaultTotalHours }) => {
                           type="button"
                           variant="ghost"
                           size="icon"
+                          aria-label="Remove away window"
                           onClick={() => setAwayWindows((prev) => prev.filter((_, i) => i !== idx))}
                         >
                           <Trash2 className="h-4 w-4" />

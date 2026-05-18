@@ -41,7 +41,7 @@ const ShopRateCalculator = ({ onApplyRate, trigger }: ShopRateCalculatorProps) =
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         {trigger || (
-          <Button variant="ghost" size="icon" className="h-6 w-6" title="Shop Rate Calculator">
+          <Button variant="ghost" size="icon" className="h-6 w-6" title="Shop Rate Calculator" aria-label="Open shop rate calculator">
             <Calculator className="h-3.5 w-3.5" />
           </Button>
         )}

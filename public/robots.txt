@@ -12,3 +12,5 @@ Allow: /
 
 User-agent: *
 Allow: /
+
+Sitemap: https://cut-cost-calculator-pro.lovable.app/sitemap.xml

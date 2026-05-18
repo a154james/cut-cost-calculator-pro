@@ -67,7 +67,7 @@ const OperationsManager = ({ operations, onChange, renderRateButton }: Operation
                 placeholder={`Operation ${idx + 1}`}
               />
               {operations.length > 1 && (
-                <Button variant="ghost" size="icon" onClick={() => removeOperation(op.id)} className="h-8 w-8 text-destructive">
+                <Button variant="ghost" size="icon" onClick={() => removeOperation(op.id)} className="h-8 w-8 text-destructive" aria-label="Remove operation">
                   <Trash2 className="h-4 w-4" />
                 </Button>
               )}
