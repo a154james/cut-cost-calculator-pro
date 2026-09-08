@@ -13,30 +13,42 @@ import { cn } from "@/lib/utils";
 
 interface JobSchedulerProps {
   defaultTotalHours: number;
+  initialState?: Record<string, unknown>;
+  onStateChange?: (state: Record<string, unknown>) => void;
 }
 
 const DAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
-const JobScheduler: React.FC<JobSchedulerProps> = ({ defaultTotalHours }) => {
-  const [totalHours, setTotalHours] = useState<string>(defaultTotalHours.toFixed(2));
-  const [useAutoHours, setUseAutoHours] = useState<boolean>(true);
-  const [startDate, setStartDate] = useState<Date | undefined>(startOfDay(new Date()));
-  const [workingDays, setWorkingDays] = useState<boolean[]>([false, true, true, true, true, true, false]);
-  const [shiftStart, setShiftStart] = useState<string>("08:00");
-  const [shiftEnd, setShiftEnd] = useState<string>("17:00");
-  
-  const [breakPct, setBreakPct] = useState<string>("10");
-  const [cleaningPct, setCleaningPct] = useState<string>("5");
-  const [miscPct, setMiscPct] = useState<string>("5");
-  const [holidays, setHolidays] = useState<Date[]>([]);
-  const [runTimePerPart, setRunTimePerPart] = useState<string>("");
-  const [quantity, setQuantity] = useState<string>("");
-  const [unattendedEnabled, setUnattendedEnabled] = useState<boolean>(false);
-  const [useRunQty, setUseRunQty] = useState<boolean>(false);
+const JobScheduler: React.FC<JobSchedulerProps> = ({ defaultTotalHours, initialState, onStateChange }) => {
+  const init = initialState || {};
+  const pick = <T,>(key: string, fallback: T): T =>
+    init[key] !== undefined && init[key] !== null ? (init[key] as T) : fallback;
+
+  const [totalHours, setTotalHours] = useState<string>(pick("totalHours", defaultTotalHours.toFixed(2)));
+  const [useAutoHours, setUseAutoHours] = useState<boolean>(pick("useAutoHours", true));
+  const [startDate, setStartDate] = useState<Date | undefined>(
+    init.startDate ? startOfDay(new Date(init.startDate as string)) : startOfDay(new Date())
+  );
+  const [workingDays, setWorkingDays] = useState<boolean[]>(
+    pick("workingDays", [false, true, true, true, true, true, false])
+  );
+  const [shiftStart, setShiftStart] = useState<string>(pick("shiftStart", "08:00"));
+  const [shiftEnd, setShiftEnd] = useState<string>(pick("shiftEnd", "17:00"));
+
+  const [breakPct, setBreakPct] = useState<string>(pick("breakPct", "10"));
+  const [cleaningPct, setCleaningPct] = useState<string>(pick("cleaningPct", "5"));
+  const [miscPct, setMiscPct] = useState<string>(pick("miscPct", "5"));
+  const [holidays, setHolidays] = useState<Date[]>(
+    ((init.holidays as string[]) || []).map((d) => startOfDay(new Date(d)))
+  );
+  const [runTimePerPart, setRunTimePerPart] = useState<string>(pick("runTimePerPart", ""));
+  const [quantity, setQuantity] = useState<string>(pick("quantity", ""));
+  const [unattendedEnabled, setUnattendedEnabled] = useState<boolean>(pick("unattendedEnabled", false));
+  const [useRunQty, setUseRunQty] = useState<boolean>(pick("useRunQty", false));
   const [expandedDays, setExpandedDays] = useState<Record<number, boolean>>({});
   const [awayWindows, setAwayWindows] = useState<
     { start: string; end: string; scope: "every" | "weekday" | "date"; weekdays?: number[]; date?: string }[]
-  >([]);
+  >(pick("awayWindows", []));
 
   useEffect(() => {
     if (useRunQty) {
@@ -52,6 +64,31 @@ const JobScheduler: React.FC<JobSchedulerProps> = ({ defaultTotalHours }) => {
   useEffect(() => {
     if (useAutoHours) setTotalHours(defaultTotalHours.toFixed(2));
   }, [defaultTotalHours, useAutoHours]);
+
+  useEffect(() => {
+    onStateChange?.({
+      totalHours,
+      useAutoHours,
+      startDate: startDate ? startDate.toISOString() : undefined,
+      workingDays,
+      shiftStart,
+      shiftEnd,
+      breakPct,
+      cleaningPct,
+      miscPct,
+      holidays: holidays.map((d) => d.toISOString()),
+      runTimePerPart,
+      quantity,
+      unattendedEnabled,
+      useRunQty,
+      awayWindows,
+    });
+  }, [
+    totalHours, useAutoHours, startDate, workingDays, shiftStart, shiftEnd,
+    breakPct, cleaningPct, miscPct, holidays, runTimePerPart, quantity,
+    unattendedEnabled, useRunQty, awayWindows, onStateChange,
+  ]);
+
 
   const parseTime = (t: string): number => {
     const [h, m] = t.split(":").map((n) => parseInt(n) || 0);
