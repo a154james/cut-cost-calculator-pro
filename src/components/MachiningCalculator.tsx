@@ -435,6 +435,15 @@ const MachiningCalculator = () => {
 
   return (
     <div className="max-w-4xl mx-auto">
+      {loadedFromLink && (
+        <div className="mb-4 flex items-center justify-between gap-3 rounded-md border border-primary/30 bg-primary/5 px-4 py-2">
+          <p className="text-sm">These values were loaded from a shared link.</p>
+          <Button variant="ghost" size="sm" onClick={startFresh}>
+            <X className="h-4 w-4 mr-1" /> Start fresh
+          </Button>
+        </div>
+      )}
+
       <Tabs defaultValue="machining" className="w-full">
         <TabsList className="grid grid-cols-2 md:grid-cols-5 h-auto">
           <TabsTrigger value="machining">Machining Calculator</TabsTrigger>
