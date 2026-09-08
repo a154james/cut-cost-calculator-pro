@@ -685,10 +685,10 @@ const MachiningCalculator = () => {
                 )}
               </div>
               
-              <div className="mt-6 flex justify-center">
+              <div className="mt-6 flex flex-wrap justify-center gap-2">
                 <Popover>
                   <PopoverTrigger asChild>
-                    <Button variant="outline" className="mr-2">
+                    <Button variant="outline">
                       <FileText className="mr-2 h-4 w-4" />
                       Export Options
                     </Button>
@@ -702,7 +702,29 @@ const MachiningCalculator = () => {
                     </div>
                   </PopoverContent>
                 </Popover>
+                <Button variant="outline" onClick={handleShare}>
+                  <Link2 className="mr-2 h-4 w-4" />
+                  Share Link
+                </Button>
               </div>
+
+              {shareLink && (
+                <div className="mt-4 max-w-2xl mx-auto flex items-center gap-2 border rounded-md p-2 bg-muted/30">
+                  <Input readOnly value={shareLink} className="text-xs" aria-label="Shareable calculator link" />
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    aria-label="Copy link"
+                    onClick={async () => {
+                      const ok = await copyToClipboard(shareLink);
+                      if (ok) toast({ title: "Link copied" });
+                    }}
+                  >
+                    <Copy className="h-4 w-4" />
+                  </Button>
+                </div>
+              )}
+
 
               <QuantityBreakdown
                 machineTimePerPiece={totalMachineTimePerPiece}
