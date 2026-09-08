@@ -588,6 +588,8 @@ const MachiningCalculator = () => {
                   standalone={false}
                   externalQuantity={quantity}
                   onMaterialCostChange={(cost) => setMaterialCost(cost)}
+                  initialState={sharedState?.material as Record<string, unknown> | undefined}
+                  onStateChange={handleMaterialState}
                 />
               )}
             </TabsContent>
@@ -597,8 +599,13 @@ const MachiningCalculator = () => {
             </TabsContent>
 
             <TabsContent value="scheduler" className="mt-0" forceMount>
-              <JobScheduler defaultTotalHours={totalJobHours} />
+              <JobScheduler
+                defaultTotalHours={totalJobHours}
+                initialState={sharedState?.scheduler as Record<string, unknown> | undefined}
+                onStateChange={handleSchedulerState}
+              />
             </TabsContent>
+
             
             <TabsContent value="advanced" className="mt-0" forceMount>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
