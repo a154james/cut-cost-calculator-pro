@@ -1,48 +1,33 @@
-## Plan: Job Scheduler Tab (Machining Time → Calendar Days)
+# Shareable Calculator Links
 
-Add a new tab to the calculator that turns the total job hours from the Machining tab into an actual finish date on a calendar, based on the user's working schedule and buffer allowances.
+Add a "Share Link" button that packs every value you've entered into a web address you can copy, bookmark, or send. Opening that address restores the calculator exactly as it was — no export, no account, no backend.
 
-### New tab
+## What it does
 
-Add a 5th tab `Job Scheduler` to `MachiningCalculator.tsx` (grid becomes `grid-cols-5`, stacks on mobile). Tab renders a new component `JobScheduler.tsx`.
+- A **Share Link** button next to the Print Quote button.
+- Clicking it copies a link to the clipboard and shows a confirmation, plus a small box with the link text and a Copy button for browsers that block auto-copy.
+- Opening a shared link fills in every tab: machining operations, programming, quantity, tooling, markup, finishing selections, material entries, and the job scheduler settings (start date, working days, shift hours, buffers, away times, holidays, unattended option).
+- After loading, a short notice says the values came from a shared link, with a "Start fresh" button that clears the address back to the plain page.
+- The address bar updates without reloading, so the page keeps working normally.
 
-### Inputs (in `JobScheduler.tsx`)
+## How the values travel
 
-1. **Total job hours** — pre-filled from the Machining tab's aggregated total (machine time per piece × quantity + total setup time + programming time if included). Editable override field so users can plan a hypothetical job too.
-2. **Start date** — date picker (Shadcn Popover + Calendar, with `pointer-events-auto`).
-3. **Working days** — 7 checkboxes (Mon–Sun), defaults Mon–Fri.
-4. **Shift hours per working day** — start time + end time inputs (e.g. 08:00 → 17:00). Optional lunch break duration (minutes) subtracted from each working day.
-5. **Buffer allowances** (all optional, expressed as % of productive time or fixed minutes/day):
-   - Operator breaks (default 10%)
-   - Machine cleaning / maintenance (default 5%)
-   - Changeover / misc downtime (default 5%)
-6. **Holidays / skip dates** — multi-select calendar to exclude specific dates.
+All values are encoded into the address after a `#` (fragment), so they never get sent to a server and stay private. The data is JSON, compressed and base64url-encoded to keep the link as short as practical. Long jobs (many operations, many away windows) produce longer links; that is expected with self-contained links.
 
-### Output
+## Technical notes
 
-- **Effective productive hours per working day** = (shift length − lunch) × (1 − total buffer %).
-- **Total working days needed** = ceil(total hours / effective hours per day).
-- **Estimated end date** = walk forward from start date, skipping non-working days and holidays, until working days are consumed. Handle partial last day (show end time within the last day's shift).
-- Display a results card with: end date, end time, total calendar days span, working days used, productive hours/day, total buffer hours absorbed.
-- Render a small calendar (Shadcn `Calendar` in read-only mode) highlighting: start date (primary), working days in range (accent), holidays (muted), end date (destructive/highlight).
+New file `src/lib/shareState.ts`:
+- `ShareState` type — a versioned snapshot (`v: 1`) with three sections: `machining`, `material`, `scheduler`.
+- `encodeState(state)` / `decodeState(str)` — JSON → deflate (via `fflate`, added as a dependency) → base64url, and the reverse. Decoding is defensive: unknown version or malformed data returns `null` and the app loads defaults.
+- Helpers to read the fragment (`#s=...`) and to write it with `history.replaceState`.
 
-### Wiring
+Changes to `src/components/MachiningCalculator.tsx`:
+- Lift the shared snapshot: `MaterialCalculator` and `JobScheduler` currently own their own state. Rather than lifting all of it, each gains two optional props: `initialState` (a plain object applied once on mount) and `onStateChange` (called when its values change) so the parent can hold a current snapshot for encoding. Existing behaviour and props stay intact.
+- Read `#s=` once on mount and seed initial state from it before first render (lazy `useState` initializers) so nothing flickers.
+- `handleShare()` builds the snapshot, encodes it, writes the fragment, and copies `window.location.href` via `navigator.clipboard` with a `document.execCommand` fallback.
 
-- Lift the aggregated total-hours value from `MachiningCalculator` (already computed in `getAggregatedValues`) and pass as a prop `defaultTotalHours` to `JobScheduler`.
-- Scheduler keeps its own local state; does not mutate machining state.
-- No backend, no persistence beyond component state.
+Changes to `src/components/MaterialCalculator.tsx` and `src/components/JobScheduler.tsx`:
+- Accept the two new optional props; serialize dates as ISO strings for the scheduler.
+- No calculation-logic changes.
 
-### Files
-
-**Create**
-- `src/components/JobScheduler.tsx` — the entire feature (form + calculation + result + mini calendar).
-
-**Modify**
-- `src/components/MachiningCalculator.tsx` — add 5th `TabsTrigger` + `TabsContent`, expose total hours to the new tab, change tabs grid to `grid-cols-2 md:grid-cols-5`.
-
-### Technical notes
-
-- Use `date-fns` (already in project): `addDays`, `format`, `isSameDay`, `getDay`, `addMinutes`.
-- Working-day walk: simple loop, capped at e.g. 730 days to avoid runaway loops on bad input.
-- All colors via existing semantic tokens — no hardcoded colors.
-- Mobile: stack inputs single column; calendar full width.
+Not included: shortened links or server-side storage (would require the backend), and saved-quote history.
