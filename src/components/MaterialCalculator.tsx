@@ -69,14 +69,22 @@ interface MaterialCalculatorProps {
   standalone?: boolean;
   externalQuantity?: string;
   onMaterialCostChange?: (cost: string) => void;
+  initialState?: Record<string, unknown>;
+  onStateChange?: (state: Record<string, unknown>) => void;
 }
 
 const MaterialCalculator = ({ 
   standalone = false, 
   externalQuantity, 
-  onMaterialCostChange 
+  onMaterialCostChange,
+  initialState,
+  onStateChange
 }: MaterialCalculatorProps) => {
   const { toast } = useToast();
+
+  const init = initialState || {};
+  const pick = <T,>(key: string, fallback: T): T =>
+    init[key] !== undefined && init[key] !== null ? (init[key] as T) : fallback;
 
   // Load material costs from localStorage or use defaults
   const [materialCosts, setMaterialCosts] = useState<MaterialCost>(() => {
@@ -85,25 +93,46 @@ const MaterialCalculator = ({
   });
   const [materialDensities] = useState<MaterialDensity>(defaultMaterialDensities);
 
-  const [selectedMaterial, setSelectedMaterial] = useState<string>("aluminum");
-  const [materialVolume, setMaterialVolume] = useState<string>("");
+  const [selectedMaterial, setSelectedMaterial] = useState<string>(pick("selectedMaterial", "aluminum"));
+  const [materialVolume, setMaterialVolume] = useState<string>(pick("materialVolume", ""));
   const [materialCostPerKg, setMaterialCostPerKg] = useState<string>(() => {
+    if (init.materialCostPerKg) return init.materialCostPerKg as string;
     const costPerKg = materialCosts["aluminum"];
     return costPerKg.toString();
   });
-  const [customDensity, setCustomDensity] = useState<string>("2.7");
-  const [quantity, setQuantity] = useState<string>("1");
+  const [customDensity, setCustomDensity] = useState<string>(pick("customDensity", "2.7"));
+  const [quantity, setQuantity] = useState<string>(pick("quantity", "1"));
 
-  const [length, setLength] = useState<string>("");
-  const [width, setWidth] = useState<string>("");
-  const [thickness, setThickness] = useState<string>("");
-  const [diameter, setDiameter] = useState<string>("");
+  const [length, setLength] = useState<string>(pick("length", ""));
+  const [width, setWidth] = useState<string>(pick("width", ""));
+  const [thickness, setThickness] = useState<string>(pick("thickness", ""));
+  const [diameter, setDiameter] = useState<string>(pick("diameter", ""));
 
-  const [isMetric, setIsMetric] = useState<boolean>(false);
-  const [materialComparison, setMaterialComparison] = useState<boolean>(false);
+  const [isMetric, setIsMetric] = useState<boolean>(pick("isMetric", false));
+  const [materialComparison, setMaterialComparison] = useState<boolean>(pick("materialComparison", false));
   const [materialCost, setMaterialCost] = useState<string>("0");
   const [weightPerPiece, setWeightPerPiece] = useState<number>(0);
   const [totalWeight, setTotalWeight] = useState<number>(0);
+
+  useEffect(() => {
+    onStateChange?.({
+      selectedMaterial,
+      materialVolume,
+      materialCostPerKg,
+      customDensity,
+      quantity,
+      length,
+      width,
+      thickness,
+      diameter,
+      isMetric,
+      materialComparison,
+    });
+  }, [
+    selectedMaterial, materialVolume, materialCostPerKg, customDensity, quantity,
+    length, width, thickness, diameter, isMetric, materialComparison, onStateChange,
+  ]);
+
 
   // Configuration dialog state
   const [configDialogOpen, setConfigDialogOpen] = useState(false);
