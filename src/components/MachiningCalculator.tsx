@@ -1,11 +1,11 @@
 
-import { useState } from "react";
+import { useState, useRef, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Label } from "@/components/ui/label";
-import { Calculator, FileText, Printer } from "lucide-react";
+import { Calculator, FileText, Printer, Link2, Copy, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import ResultCard from "./ResultCard";
 import TimeInput from "./TimeInput";
@@ -19,6 +19,13 @@ import ShopRateCalculator from "./ShopRateCalculator";
 import JobScheduler from "./JobScheduler";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import {
+  readStateFromUrl,
+  writeStateToUrl,
+  clearStateFromUrl,
+  copyToClipboard,
+  ShareState,
+} from "@/lib/shareState";
 
 const initialFinishingProcesses: ProcessOption[] = [
   { id: "none", name: "None", cost: 0, selected: true },
@@ -31,29 +38,90 @@ const initialFinishingProcesses: ProcessOption[] = [
   { id: "chromate", name: "Chromate", cost: 30, selected: false }
 ];
 
+const sharedState = readStateFromUrl();
+const sharedMachining = (sharedState?.machining || {}) as Record<string, unknown>;
+const pickShared = <T,>(key: string, fallback: T): T =>
+  sharedMachining[key] !== undefined && sharedMachining[key] !== null
+    ? (sharedMachining[key] as T)
+    : fallback;
+
 const MachiningCalculator = () => {
   const { toast } = useToast();
 
-  const [operations, setOperations] = useState<Operation[]>([createDefaultOperation(1)]);
+  const [loadedFromLink, setLoadedFromLink] = useState<boolean>(!!sharedState);
+  const [shareLink, setShareLink] = useState<string>("");
+  const materialStateRef = useRef<Record<string, unknown>>({});
+  const schedulerStateRef = useRef<Record<string, unknown>>({});
+  const handleMaterialState = useCallback((s: Record<string, unknown>) => {
+    materialStateRef.current = s;
+  }, []);
+  const handleSchedulerState = useCallback((s: Record<string, unknown>) => {
+    schedulerStateRef.current = s;
+  }, []);
 
-  const [programmingTimeHours, setProgrammingTimeHours] = useState<string>("");
-  const [programmingTimeMinutes, setProgrammingTimeMinutes] = useState<string>("");
-  const [programmingHourlyCost, setProgrammingHourlyCost] = useState<string>("");
-  const [quantity, setQuantity] = useState<string>("1");
+  const [operations, setOperations] = useState<Operation[]>(
+    pickShared<Operation[]>("operations", [createDefaultOperation(1)])
+  );
+
+  const [programmingTimeHours, setProgrammingTimeHours] = useState<string>(pickShared("programmingTimeHours", ""));
+  const [programmingTimeMinutes, setProgrammingTimeMinutes] = useState<string>(pickShared("programmingTimeMinutes", ""));
+  const [programmingHourlyCost, setProgrammingHourlyCost] = useState<string>(pickShared("programmingHourlyCost", ""));
+  const [quantity, setQuantity] = useState<string>(pickShared("quantity", "1"));
 
   const [totalMachineTime, setTotalMachineTime] = useState<string>("0");
   const [costPerPiece, setCostPerPiece] = useState<string>("0");
   const [totalLotCost, setTotalLotCost] = useState<string>("0");
-  const [materialCost, setMaterialCost] = useState<string>("0");
+  const [materialCost, setMaterialCost] = useState<string>(pickShared("materialCost", "0"));
 
-  const [setupCount, setSetupCount] = useState<string>("1");
-  const [finishingProcesses, setFinishingProcesses] = useState<ProcessOption[]>(initialFinishingProcesses);
+  const [setupCount, setSetupCount] = useState<string>(pickShared("setupCount", "1"));
+  const [finishingProcesses, setFinishingProcesses] = useState<ProcessOption[]>(
+    pickShared<ProcessOption[]>("finishingProcesses", initialFinishingProcesses)
+  );
   const [batchSizes, setBatchSizes] = useState<string[]>([]);
-  const [toolCost, setToolCost] = useState<string>("0");
-  const [addMarkup, setAddMarkup] = useState<boolean>(false);
-  const [markupPercentage, setMarkupPercentage] = useState<string>("20");
-  const [includeProgramming, setIncludeProgramming] = useState<boolean>(true);
-  const [manualMaterialEntry, setManualMaterialEntry] = useState<boolean>(false);
+  const [toolCost, setToolCost] = useState<string>(pickShared("toolCost", "0"));
+  const [addMarkup, setAddMarkup] = useState<boolean>(pickShared("addMarkup", false));
+  const [markupPercentage, setMarkupPercentage] = useState<string>(pickShared("markupPercentage", "20"));
+  const [includeProgramming, setIncludeProgramming] = useState<boolean>(pickShared("includeProgramming", true));
+  const [manualMaterialEntry, setManualMaterialEntry] = useState<boolean>(pickShared("manualMaterialEntry", false));
+
+  const buildShareState = (): ShareState => ({
+    v: 1,
+    machining: {
+      operations,
+      programmingTimeHours,
+      programmingTimeMinutes,
+      programmingHourlyCost,
+      quantity,
+      materialCost,
+      setupCount,
+      finishingProcesses,
+      toolCost,
+      addMarkup,
+      markupPercentage,
+      includeProgramming,
+      manualMaterialEntry,
+    },
+    material: materialStateRef.current,
+    scheduler: schedulerStateRef.current,
+  });
+
+  const handleShare = async () => {
+    const link = writeStateToUrl(buildShareState());
+    setShareLink(link);
+    const copied = await copyToClipboard(link);
+    toast({
+      title: copied ? "Link copied" : "Link created",
+      description: copied
+        ? "Your calculator link is on the clipboard."
+        : "Copy the link below to save or share these values.",
+    });
+  };
+
+  const startFresh = () => {
+    clearStateFromUrl();
+    window.location.reload();
+  };
+
 
   const calculateTotalTime = (hours: string, minutes: string): number => {
     const hoursNum = parseFloat(hours) || 0;
@@ -367,6 +435,15 @@ const MachiningCalculator = () => {
 
   return (
     <div className="max-w-4xl mx-auto">
+      {loadedFromLink && (
+        <div className="mb-4 flex items-center justify-between gap-3 rounded-md border border-primary/30 bg-primary/5 px-4 py-2">
+          <p className="text-sm">These values were loaded from a shared link.</p>
+          <Button variant="ghost" size="sm" onClick={startFresh}>
+            <X className="h-4 w-4 mr-1" /> Start fresh
+          </Button>
+        </div>
+      )}
+
       <Tabs defaultValue="machining" className="w-full">
         <TabsList className="grid grid-cols-2 md:grid-cols-5 h-auto">
           <TabsTrigger value="machining">Machining Calculator</TabsTrigger>
@@ -511,6 +588,8 @@ const MachiningCalculator = () => {
                   standalone={false}
                   externalQuantity={quantity}
                   onMaterialCostChange={(cost) => setMaterialCost(cost)}
+                  initialState={sharedState?.material as Record<string, unknown> | undefined}
+                  onStateChange={handleMaterialState}
                 />
               )}
             </TabsContent>
@@ -520,8 +599,13 @@ const MachiningCalculator = () => {
             </TabsContent>
 
             <TabsContent value="scheduler" className="mt-0" forceMount>
-              <JobScheduler defaultTotalHours={totalJobHours} />
+              <JobScheduler
+                defaultTotalHours={totalJobHours}
+                initialState={sharedState?.scheduler as Record<string, unknown> | undefined}
+                onStateChange={handleSchedulerState}
+              />
             </TabsContent>
+
             
             <TabsContent value="advanced" className="mt-0" forceMount>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -617,10 +701,10 @@ const MachiningCalculator = () => {
                 )}
               </div>
               
-              <div className="mt-6 flex justify-center">
+              <div className="mt-6 flex flex-wrap justify-center gap-2">
                 <Popover>
                   <PopoverTrigger asChild>
-                    <Button variant="outline" className="mr-2">
+                    <Button variant="outline">
                       <FileText className="mr-2 h-4 w-4" />
                       Export Options
                     </Button>
@@ -634,7 +718,29 @@ const MachiningCalculator = () => {
                     </div>
                   </PopoverContent>
                 </Popover>
+                <Button variant="outline" onClick={handleShare}>
+                  <Link2 className="mr-2 h-4 w-4" />
+                  Share Link
+                </Button>
               </div>
+
+              {shareLink && (
+                <div className="mt-4 max-w-2xl mx-auto flex items-center gap-2 border rounded-md p-2 bg-muted/30">
+                  <Input readOnly value={shareLink} className="text-xs" aria-label="Shareable calculator link" />
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    aria-label="Copy link"
+                    onClick={async () => {
+                      const ok = await copyToClipboard(shareLink);
+                      if (ok) toast({ title: "Link copied" });
+                    }}
+                  >
+                    <Copy className="h-4 w-4" />
+                  </Button>
+                </div>
+              )}
+
 
               <QuantityBreakdown
                 machineTimePerPiece={totalMachineTimePerPiece}
